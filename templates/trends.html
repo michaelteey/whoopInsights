@@ -1,0 +1,27 @@
+{% extends "base.html" %}
+{% block title %}Trends · Whoop Insights{% endblock %}
+
+{% block content %}
+<section class="head">
+    <h1>Trends</h1>
+    <nav class="range">
+        {% for d, label in [(7, '1w'), (30, '1m'), (90, '3m'), (180, '6m'), (365, '1y'), (1825, '5y')] %}
+            <a href="?days={{ d }}" class="{% if days == d %}on{% endif %}">{{ label }}</a>
+        {% endfor %}
+    </nav>
+</section>
+
+<article><h3>Recovery</h3><canvas id="recovery"></canvas></article>
+<article><h3>HRV (ms)</h3><canvas id="hrv"></canvas></article>
+<article><h3>Resting HR</h3><canvas id="rhr"></canvas></article>
+<article><h3>Strain</h3><canvas id="strain"></canvas></article>
+<article><h3>Sleep performance (%)</h3><canvas id="sleep_performance"></canvas></article>
+<article><h3>Sleep duration (hours)</h3><canvas id="sleep_hours"></canvas></article>
+{% endblock %}
+
+{% block scripts %}
+<script>
+    const series = {{ series|tojson }};
+    Object.entries(series).forEach(([key, points]) => renderLine(key, points));
+</script>
+{% endblock %}

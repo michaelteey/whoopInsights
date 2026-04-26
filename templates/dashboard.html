@@ -1,0 +1,65 @@
+{% extends "base.html" %}
+{% block title %}Overview · Whoop Insights{% endblock %}
+
+{% block content %}
+{% if not user %}
+    <article class="hero">
+        <h1>The Whoop dashboard Whoop didn't build.</h1>
+        <p class="lede">Long-range trends, real strength progression, and the analytics the official app caps at six months.</p>
+        {% if has_credentials %}
+            <a role="button" href="{{ url_for('auth.login') }}">Connect your Whoop</a>
+        {% else %}
+            <p><strong>Setup needed:</strong> add your Whoop developer credentials to <code>.env</code> to enable login.</p>
+            {% if sample_mode %}<p>Sample data is enabled — explore <a href="{{ url_for('strength.index') }}">Strength</a> or <a href="{{ url_for('dashboard.trends_view') }}">Trends</a>.</p>{% endif %}
+        {% endif %}
+    </article>
+{% else %}
+    <section class="head">
+        <h1>Hi {{ user['first_name'] or 'there' }}.</h1>
+        <form method="post" action="{{ url_for('dashboard.sync') }}">
+            <button type="submit">Sync now</button>
+        </form>
+    </section>
+
+    <section class="grid stat-grid">
+        <article>
+            <h3>Recovery</h3>
+            <p class="stat">{{ summary.recovery.recovery_score|round(0)|int if summary.recovery else '—' }}%</p>
+            <small>{{ summary.recovery.recorded_at[:10] if summary.recovery else 'no data' }}</small>
+        </article>
+        <article>
+            <h3>HRV</h3>
+            <p class="stat">{{ summary.recovery.hrv_rmssd_milli|round(0)|int if summary.recovery else '—' }} ms</p>
+            <small>RMSSD</small>
+        </article>
+        <article>
+            <h3>RHR</h3>
+            <p class="stat">{{ summary.recovery.resting_heart_rate|round(0)|int if summary.recovery else '—' }}</p>
+            <small>bpm</small>
+        </article>
+        <article>
+            <h3>Strain</h3>
+            <p class="stat">{{ summary.cycle.strain|round(1) if summary.cycle else '—' }}</p>
+            <small>last cycle</small>
+        </article>
+        <article>
+            <h3>Sleep performance</h3>
+            <p class="stat">{{ summary.sleep.sleep_performance_pct|round(0)|int if summary.sleep else '—' }}%</p>
+            <small>last night</small>
+        </article>
+        <article>
+            <h3>Workouts</h3>
+            <p class="stat">{{ summary.workout_count }}</p>
+            <small>{{ summary.set_count }} strength sets</small>
+        </article>
+    </section>
+
+    <section>
+        <h2>Where to next</h2>
+        <ul>
+            <li><a href="{{ url_for('strength.index') }}">Strength progression →</a></li>
+            <li><a href="{{ url_for('dashboard.trends_view') }}">Long-range trends →</a></li>
+        </ul>
+    </section>
+{% endif %}
+{% endblock %}

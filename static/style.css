@@ -1,0 +1,90 @@
+:root {
+    --pico-font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Helvetica, Arial, sans-serif;
+}
+
+.topbar {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    flex-wrap: wrap;
+    gap: 0.75rem;
+    padding-block: 1rem;
+}
+.topbar .brand {
+    font-weight: 700;
+    text-decoration: none;
+}
+.topbar nav {
+    display: flex;
+    gap: 1rem;
+    flex-wrap: wrap;
+    font-size: 0.9rem;
+}
+
+.head {
+    display: flex;
+    justify-content: space-between;
+    align-items: baseline;
+    gap: 1rem;
+    flex-wrap: wrap;
+}
+
+.hero {
+    text-align: left;
+    padding: 1.5rem;
+}
+.hero h1 { line-height: 1.15; }
+.lede { color: var(--pico-muted-color); }
+
+.stat-grid article {
+    text-align: left;
+    padding: 1rem 1.1rem;
+}
+.stat-grid h3 {
+    font-size: 0.8rem;
+    font-weight: 500;
+    text-transform: uppercase;
+    letter-spacing: 0.04em;
+    color: var(--pico-muted-color);
+    margin: 0 0 0.25rem;
+}
+.stat-grid .stat {
+    font-size: 1.9rem;
+    font-weight: 700;
+    margin: 0;
+    line-height: 1.1;
+}
+.stat-grid small { color: var(--pico-muted-color); }
+
+.range {
+    display: flex;
+    gap: 0.4rem;
+    flex-wrap: wrap;
+}
+.range a {
+    padding: 0.25rem 0.6rem;
+    border-radius: 999px;
+    border: 1px solid var(--pico-muted-border-color);
+    text-decoration: none;
+    font-size: 0.85rem;
+}
+.range a.on {
+    background: var(--pico-primary);
+    color: var(--pico-primary-inverse);
+    border-color: var(--pico-primary);
+}
+
+.flash {
+    padding: 0.75rem 1rem;
+    margin-bottom: 1rem;
+    border-radius: 0.5rem;
+}
+.flash-success { background: #1f3b2c; color: #d8f5e3; }
+.flash-error { background: #4a1c1c; color: #f5d8d8; }
+
+.exercise-list a { font-weight: 600; }
+
+@media (max-width: 600px) {
+    .stat-grid .stat { font-size: 1.5rem; }
+    .topbar { flex-direction: column; align-items: flex-start; }
+}

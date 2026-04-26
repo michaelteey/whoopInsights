@@ -1,0 +1,47 @@
+{% extends "base.html" %}
+{% block title %}{{ exercise }} · Strength{% endblock %}
+
+{% block content %}
+<section class="head">
+    <h1>{{ exercise }}</h1>
+    <a href="{{ url_for('strength.index') }}">← back</a>
+</section>
+
+{% if summary %}
+<section class="grid stat-grid">
+    <article><h3>Best e1RM</h3><p class="stat">{{ summary.best_e1rm_kg }} kg</p></article>
+    <article><h3>Current e1RM</h3><p class="stat">{{ summary.current_e1rm_kg }} kg</p></article>
+    <article><h3>Δ since first session</h3><p class="stat">{% if summary.delta_e1rm_kg >= 0 %}+{% endif %}{{ summary.delta_e1rm_kg }} kg</p></article>
+    <article><h3>Sessions</h3><p class="stat">{{ summary.total_sessions }}</p></article>
+</section>
+
+<article><h3>Estimated 1RM over time</h3><canvas id="e1rm"></canvas></article>
+<article><h3>Top weight per session</h3><canvas id="top_weight"></canvas></article>
+<article><h3>Volume per session (kg)</h3><canvas id="volume"></canvas></article>
+
+{% if prs %}
+<article>
+    <h3>Personal records ({{ prs|length }})</h3>
+    <table>
+        <thead><tr><th>Date</th><th>Weight</th><th>Reps</th><th>e1RM</th></tr></thead>
+        <tbody>
+            {% for pr in prs %}
+                <tr><td>{{ pr.date }}</td><td>{{ pr.weight_kg }} kg</td><td>{{ pr.reps }}</td><td>{{ pr.e1rm_kg }} kg</td></tr>
+            {% endfor %}
+        </tbody>
+    </table>
+</article>
+{% endif %}
+{% else %}
+<article><p>No data for this exercise.</p></article>
+{% endif %}
+{% endblock %}
+
+{% block scripts %}
+<script>
+    const sessions = {{ sessions|tojson }};
+    renderLine('e1rm', sessions.map(s => ({day: s.date, value: s.top_e1rm_kg})));
+    renderLine('top_weight', sessions.map(s => ({day: s.date, value: s.top_weight_kg})));
+    renderLine('volume', sessions.map(s => ({day: s.date, value: s.volume_kg})));
+</script>
+{% endblock %}

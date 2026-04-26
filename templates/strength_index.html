@@ -1,0 +1,32 @@
+{% extends "base.html" %}
+{% block title %}Strength · Whoop Insights{% endblock %}
+
+{% block content %}
+<section class="head">
+    <h1>Strength progression</h1>
+    <p class="lede">Pick an exercise to see weight, volume, and estimated 1RM over time.</p>
+</section>
+
+{% if not exercises %}
+    <article>
+        <p>No strength sets yet.</p>
+        <p>Either run a sync (if your Whoop strength data is exposed via API) or add sets manually. The schema is ready — manual-entry UI is the next thing on the roadmap.</p>
+    </article>
+{% else %}
+    <table class="exercise-list">
+        <thead>
+            <tr><th>Exercise</th><th>Sets</th><th>Heaviest</th><th>Last performed</th></tr>
+        </thead>
+        <tbody>
+            {% for ex in exercises %}
+                <tr>
+                    <td><a href="{{ url_for('strength.detail', exercise_name=ex.exercise_name) }}">{{ ex.exercise_name }}</a></td>
+                    <td>{{ ex.set_count }}</td>
+                    <td>{{ ex.heaviest_kg|round(1) }} kg</td>
+                    <td>{{ ex.last_performed[:10] }}</td>
+                </tr>
+            {% endfor %}
+        </tbody>
+    </table>
+{% endif %}
+{% endblock %}
