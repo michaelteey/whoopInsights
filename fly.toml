@@ -1,0 +1,25 @@
+# Rename `app` below to whatever you want your fly app called.
+# `fly launch --copy-config` will offer to do this for you.
+
+app = "whoop-insights"
+primary_region = "lhr"  # London. Change to your nearest: https://fly.io/docs/reference/regions/
+
+[build]
+
+[env]
+  USE_SAMPLE_DATA = "false"
+
+[http_service]
+  internal_port = 8080
+  force_https = true
+  auto_stop_machines = "stop"
+  auto_start_machines = true
+  min_machines_running = 0  # scale to zero when idle to stay on free tier
+
+[[mounts]]
+  source = "whoop_data"
+  destination = "/data"
+
+[[vm]]
+  size = "shared-cpu-1x"
+  memory = "256mb"

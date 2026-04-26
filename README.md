@@ -69,6 +69,28 @@ The headline product wedge — per-exercise weight progression — depends on Wh
 
 This needs a real Whoop account with Strength Trainer history to verify. Highest priority once you have credentials.
 
+## Deploying to Fly.io
+
+From the Codespaces terminal (or any terminal with `flyctl` installed):
+
+```bash
+fly auth signup            # opens browser; one-time
+fly launch --copy-config   # reads fly.toml, asks to confirm app name & region
+fly volumes create whoop_data --size 1 --region lhr   # 1 GB SQLite volume
+fly secrets set \
+    FLASK_SECRET_KEY="$(python3 -c 'import secrets; print(secrets.token_urlsafe(48))')" \
+    WHOOP_CLIENT_ID="..." \
+    WHOOP_CLIENT_SECRET="..." \
+    WHOOP_REDIRECT_URI="https://<your-app>.fly.dev/auth/callback"
+fly deploy
+```
+
+Then add `https://<your-app>.fly.dev/auth/callback` as a redirect URI in your Whoop developer app.
+
+Re-deploys after that are just `fly deploy`. The SQLite DB lives on the volume and survives deploys.
+
+`min_machines_running = 0` in `fly.toml` means the app scales to zero when idle — first request after a quiet period takes ~2 seconds to wake. Removes most of the cost on the free tier.
+
 ## Roadmap
 
 Built:
