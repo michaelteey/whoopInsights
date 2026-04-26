@@ -1,0 +1,31 @@
+{
+  "name": "Whoop Insights",
+  "image": "mcr.microsoft.com/devcontainers/python:3.11",
+  "features": {
+    "ghcr.io/devcontainers/features/github-cli:1": {}
+  },
+  "postCreateCommand": "pip install -r requirements.txt && cp -n .env.example .env && curl -L https://fly.io/install.sh | sh",
+  "postAttachCommand": "echo 'Run:  python app.py'",
+  "forwardPorts": [5000],
+  "portsAttributes": {
+    "5000": {
+      "label": "Whoop Insights",
+      "onAutoForward": "openPreview"
+    }
+  },
+  "remoteEnv": {
+    "FLYCTL_INSTALL": "/home/vscode/.fly",
+    "PATH": "/home/vscode/.fly/bin:${containerEnv:PATH}"
+  },
+  "customizations": {
+    "vscode": {
+      "extensions": [
+        "ms-python.python",
+        "ms-python.vscode-pylance"
+      ],
+      "settings": {
+        "python.defaultInterpreterPath": "/usr/local/bin/python"
+      }
+    }
+  }
+}
