@@ -1,8 +1,14 @@
+import os
+from datetime import datetime, timezone
+
 from flask import Flask
 
 from config import Config
 from db import close_db, init_db
 from routes import auth, dashboard, strength
+
+
+SERVER_BOOT_AT = datetime.now(timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ")
 
 
 def create_app() -> Flask:
@@ -21,6 +27,14 @@ def create_app() -> Flask:
     app.register_blueprint(dashboard.bp)
     app.register_blueprint(auth.bp)
     app.register_blueprint(strength.bp)
+
+    @app.context_processor
+    def inject_build_info():
+        sha = os.getenv("COMMIT_SHA", "dev")
+        return {
+            "build_sha": sha[:7] if sha and sha != "unknown" else "dev",
+            "build_time": os.getenv("BUILD_TIME") or SERVER_BOOT_AT,
+        }
 
     return app
 

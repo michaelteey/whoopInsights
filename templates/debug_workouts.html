@@ -1,0 +1,19 @@
+{% extends "base.html" %}
+{% block title %}Debug · Workouts{% endblock %}
+{% block content %}
+<section class="head">
+    <h1>Workout API debug</h1>
+    <p class="lede">Most-recent 10 workouts as Whoop returned them. If you see <code>strength_trainer</code> / <code>exercises</code> / per-set fields here, the API exposes per-set data and we can extract it. If you only see strain / HR / kilojoule, Whoop's API doesn't expose it (yet) — manual entry is the next step.</p>
+</section>
+
+{% if not workouts %}
+    <article><p>No workouts synced yet. Run a sync first.</p></article>
+{% endif %}
+
+{% for w in workouts %}
+<article>
+    <h3>{{ w.sport_name or 'Unknown' }} <small style="color: var(--pico-muted-color)">(sport_id {{ w.sport_id }}, {{ w.start_at[:16] }})</small></h3>
+    <pre style="white-space: pre-wrap; word-wrap: break-word; font-size: 0.75rem; max-height: 400px; overflow: auto;">{{ w.raw }}</pre>
+</article>
+{% endfor %}
+{% endblock %}

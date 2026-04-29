@@ -108,6 +108,26 @@ def sync():
     return redirect(url_for("dashboard.index"))
 
 
+@bp.route("/debug/workouts")
+def debug_workouts():
+    """Inspect the raw JSON Whoop returned for your most recent workouts.
+
+    The single most useful page for answering: does the API actually expose
+    per-set/per-rep/per-exercise strength data, or just workout-level summary?
+    """
+    user_id = _current_user_id()
+    if not user_id:
+        return "Sign in first", 401
+    db = get_db()
+    rows = db.execute(
+        """SELECT id, sport_id, sport_name, start_at, raw
+           FROM workouts WHERE user_id = ?
+           ORDER BY start_at DESC LIMIT 10""",
+        (user_id,),
+    ).fetchall()
+    return render_template("debug_workouts.html", workouts=rows)
+
+
 def _user_summary(db, user_id) -> dict:
     last_recovery = db.execute(
         """SELECT recovery_score, hrv_rmssd_milli, resting_heart_rate, recorded_at

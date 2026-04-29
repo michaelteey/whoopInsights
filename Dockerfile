@@ -11,6 +11,13 @@ RUN pip install -r requirements.txt
 
 COPY . .
 
+# Build-time metadata, baked into the image so the running app can show
+# which commit/timestamp is live. CI passes these via --build-arg.
+ARG COMMIT_SHA=unknown
+ARG BUILD_TIME=unknown
+ENV COMMIT_SHA=${COMMIT_SHA} \
+    BUILD_TIME=${BUILD_TIME}
+
 # /data is the persistent volume mount point (set in fly.toml).
 # DATABASE_PATH points there so SQLite survives deploys/restarts.
 ENV DATABASE_PATH=/data/whoop.db \
