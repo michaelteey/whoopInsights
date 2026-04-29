@@ -360,6 +360,25 @@ table a:hover { color: var(--mint); }
 /* ---- charts ---- */
 
 .chart-wrap { position: relative; min-height: 280px; }
+.chart-scroll {
+    overflow-x: auto;
+    overflow-y: hidden;
+    -webkit-overflow-scrolling: touch;
+    margin: 0 -0.5rem;
+    padding: 0 0.5rem 0.25rem;
+    /* hint there's more horizontally — fades on each side */
+    mask-image: linear-gradient(to right, transparent, black 1.5rem, black calc(100% - 1.5rem), transparent);
+    -webkit-mask-image: linear-gradient(to right, transparent, black 1.5rem, black calc(100% - 1.5rem), transparent);
+}
+.chart-scroll::-webkit-scrollbar { height: 4px; }
+.chart-scroll::-webkit-scrollbar-track { background: transparent; }
+.chart-scroll::-webkit-scrollbar-thumb { background: var(--border-strong); border-radius: 2px; }
+.table-scroll {
+    overflow-x: auto;
+    -webkit-overflow-scrolling: touch;
+    margin: 0 -0.5rem;
+    padding: 0 0.5rem;
+}
 .apexcharts-tooltip {
     background: var(--bg-card-2) !important;
     border: 1px solid var(--border-strong) !important;
@@ -377,11 +396,54 @@ table a:hover { color: var(--mint); }
 /* ---- responsive ---- */
 
 @media (max-width: 700px) {
-    .container { padding: 0 1rem; }
-    h1 { font-size: 1.4rem; }
-    .topbar { flex-direction: column; align-items: flex-start; gap: 0.75rem; padding-block: 1rem; }
-    .topbar nav { gap: 1.25rem; }
-    .stat-grid .stat { font-size: 1.3rem; }
-    article { padding: 1.1rem; }
-    thead th, tbody td { padding: 0.5rem 0.35rem; font-size: 0.78rem; }
+    body { font-size: 13px; }
+    .container { padding: 0 0.85rem; }
+    h1 { font-size: 1.3rem; }
+    h3 { font-size: 0.65rem; letter-spacing: 0.14em; }
+
+    .topbar {
+        flex-direction: column;
+        align-items: flex-start;
+        gap: 0.6rem;
+        padding-block: 0.75rem;
+        margin-bottom: 1.25rem;
+    }
+    .topbar nav {
+        gap: 0.9rem;
+        font-size: 0.75rem;
+        width: 100%;
+        overflow-x: auto;
+        -webkit-overflow-scrolling: touch;
+        flex-wrap: nowrap;
+        white-space: nowrap;
+        padding-bottom: 0.25rem;
+    }
+
+    .head { gap: 0.5rem; }
+
+    .stat-grid {
+        grid-template-columns: repeat(2, 1fr);
+        gap: 0.5rem;
+    }
+    .stat-grid article { padding: 0.85rem 0.9rem; }
+    .stat-grid .stat { font-size: 1.25rem; }
+    .stat-grid h3 { margin-bottom: 0.25rem; }
+
+    article { padding: 1rem; }
+    main.container { padding-bottom: 3rem; }
+
+    .range { gap: 0.35rem; }
+    .range a { padding: 0.3rem 0.6rem; font-size: 0.65rem; letter-spacing: 0.1em; }
+
+    select, input[type="text"], input[type="number"] { font-size: 0.78rem; padding: 0.4rem 0.55rem; }
+    button, [role="button"], .btn { padding: 0.4rem 0.85rem; font-size: 0.7rem; }
+
+    thead th, tbody td { padding: 0.45rem 0.3rem; font-size: 0.72rem; }
+    thead th { letter-spacing: 0.08em; }
+
+    .chart-wrap { min-height: 240px; }
+}
+
+@media (max-width: 420px) {
+    .stat-grid .stat { font-size: 1.1rem; }
 }

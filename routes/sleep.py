@@ -30,10 +30,12 @@ def index():
     return render_template(
         "sleep_index.html",
         overview=analytics.overview(db, user_id),
-        debt_curve=analytics.debt_curve(db, user_id, days=60),
-        stage_day=analytics.stage_stacked(db, user_id, bucket="day", days=60),
-        stage_week=analytics.stage_stacked(db, user_id, bucket="week", days=365),
+        debt_curve=analytics.debt_curve(db, user_id, days=14),
+        stage_day=analytics.stage_stacked(db, user_id, bucket="day",   days=60),
+        stage_week=analytics.stage_stacked(db, user_id, bucket="week",  days=365),
         stage_month=analytics.stage_stacked(db, user_id, bucket="month", days=365 * 3),
-        disturbances=analytics.disturbances_trend(db, user_id, days=90),
+        dist_day=analytics.disturbances_trend(db, user_id, bucket="day",   days=60),
+        dist_week=analytics.disturbances_trend(db, user_id, bucket="week",  days=365),
+        dist_month=analytics.disturbances_trend(db, user_id, bucket="month", days=365 * 3),
         wd_we=analytics.weekday_vs_weekend(db, user_id, days=90),
     )

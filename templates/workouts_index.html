@@ -42,24 +42,24 @@
             <a href="#" data-bucket="month">month</a>
         </nav>
     </div>
-    <div id="stacked_chart" class="chart-wrap"></div>
+    <div class="chart-scroll"><div id="stacked_chart" class="chart-wrap"></div></div>
 </article>
 
 {% if kcal %}
 <article>
     <h3>biggest burners — avg kcal per session</h3>
-    <div id="kcal_avg_by_sport" class="chart-wrap"></div>
+    <div class="chart-scroll"><div id="kcal_avg_by_sport" class="chart-wrap"></div></div>
 </article>
 
 <article>
     <h3>biggest burners — total kcal across all sessions</h3>
-    <div id="kcal_total_by_sport" class="chart-wrap"></div>
+    <div class="chart-scroll"><div id="kcal_total_by_sport" class="chart-wrap"></div></div>
 </article>
 {% endif %}
 
 <article>
     <h3>by sport</h3>
-    <table>
+    <div class="table-scroll"><table>
         <thead>
             <tr>
                 <th>sport</th>
@@ -88,7 +88,7 @@
                 </tr>
             {% endfor %}
         </tbody>
-    </table>
+    </table></div>
 </article>
 {% endif %}
 {% endblock %}

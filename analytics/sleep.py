@@ -49,11 +49,12 @@ def overview(conn: sqlite3.Connection, user_id: int) -> dict:
     }
 
 
-def debt_curve(conn: sqlite3.Connection, user_id: int, days: int = 60) -> list[dict]:
-    """Per-night need vs actual + running cumulative debt.
+def debt_curve(conn: sqlite3.Connection, user_id: int, days: int = 14) -> list[dict]:
+    """Per-night need vs actual + running cumulative debt over the LAST N days.
 
-    'debt' is positive when you slept less than baseline.
-    'cumulative' resets to zero days outside the window.
+    Cumulative resets at the start of the window — lifetime sleep debt is
+    meaningless because it grows monotonically. 14 days is the default;
+    30 is the longest sensible window.
     """
     rows = _nightly_asleep_rows(conn, user_id, days)
     cumulative = 0.0
@@ -110,18 +111,34 @@ def stage_stacked(conn: sqlite3.Connection, user_id: int,
 
 
 def disturbances_trend(conn: sqlite3.Connection, user_id: int,
-                       days: int = 90) -> list[dict]:
-    """Per-night awake minutes per asleep hour — proxy for disturbance density.
-    (We don't store disturbance_count yet; total_awake_milli works as a proxy.)
+                       bucket: str = "week",
+                       days: int = 365) -> list[dict]:
+    """Disturbance density over time — awake-minutes per asleep-hour, averaged
+    over the selected bucket (day/week/month).
+
+    We don't yet have raw disturbance counts; awake-time / asleep-time is a
+    decent proxy and uses fields we already have.
     """
-    rows = _nightly_asleep_rows(conn, user_id, days)
+    fmt = {"day": "%Y-%m-%d", "week": "%Y-%W", "month": "%Y-%m"}.get(bucket, "%Y-%W")
+    rows = conn.execute(
+        f"""
+        SELECT strftime('{fmt}', start_at) AS bucket,
+               SUM(total_awake_milli) / 60000.0 AS awake_min,
+               SUM(total_in_bed_milli - total_awake_milli) / 3600000.0 AS asleep_hours
+        FROM sleeps
+        WHERE user_id = ? AND nap = 0 AND start_at >= date('now', ?)
+        GROUP BY bucket
+        ORDER BY bucket ASC
+        """,
+        (user_id, f"-{days} days"),
+    ).fetchall()
     out = []
     for r in rows:
-        if r["asleep_hours"] <= 0:
+        if not r["asleep_hours"] or r["asleep_hours"] <= 0:
             continue
         out.append({
-            "day": r["night"],
-            "value": round(r["awake_min"] / max(r["asleep_hours"], 0.5), 2),
+            "day": r["bucket"],
+            "value": round(r["awake_min"] / r["asleep_hours"], 2),
         })
     return out
 

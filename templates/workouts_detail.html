@@ -32,12 +32,12 @@
 
 <article>
     <h3>Sessions per week</h3>
-    <div id="weekly" class="chart-wrap"></div>
+    <div class="chart-scroll"><div id="weekly" class="chart-wrap"></div></div>
 </article>
 
 <article>
     <h3>Recent sessions</h3>
-    <table>
+    <div class="table-scroll"><table>
         <thead>
             <tr><th>Date</th><th>Strain</th><th>Avg HR</th><th>Max HR</th><th>kJ</th></tr>
         </thead>
@@ -52,7 +52,7 @@
                 </tr>
             {% endfor %}
         </tbody>
-    </table>
+    </table></div>
 </article>
 {% else %}
 <article><p>No sessions of this sport yet.</p></article>

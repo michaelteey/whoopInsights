@@ -47,7 +47,7 @@
 <article>
     <h3>sleep debt — rolling</h3>
     <p class="muted" style="font-size:0.78rem; margin-bottom:0.75rem;">cumulative under-sleep against an 8 hr/night baseline. positive = in debt.</p>
-    <div id="debt_chart" class="chart-wrap"></div>
+    <div class="chart-scroll"><div id="debt_chart" class="chart-wrap"></div></div>
 </article>
 
 <article>
@@ -59,37 +59,46 @@
             <a href="#" data-bucket="month">month</a>
         </nav>
     </div>
-    <div id="stage_chart" class="chart-wrap"></div>
+    <div class="chart-scroll"><div id="stage_chart" class="chart-wrap"></div></div>
 </article>
 
 <article>
-    <h3>disturbance density — awake min per asleep hour</h3>
-    <div id="disturbances" class="chart-wrap"></div>
+    <div class="head" style="margin-bottom: 1rem;">
+        <h3 style="margin: 0;">disturbance density — awake min per asleep hour</h3>
+        <nav class="range" id="dist-toggle">
+            <a href="#" data-bucket="day">day</a>
+            <a href="#" data-bucket="week" class="on">week</a>
+            <a href="#" data-bucket="month">month</a>
+        </nav>
+    </div>
+    <div class="chart-scroll"><div id="disturbances" class="chart-wrap"></div></div>
 </article>
 
 <article>
     <h3>weekday vs weekend</h3>
-    <table>
-        <thead>
-            <tr><th>group</th><th>nights</th><th>avg sleep</th><th>avg bedtime</th><th>avg wake</th></tr>
-        </thead>
-        <tbody>
-            <tr>
-                <td>weekday (Mon–Thu)</td>
-                <td>{{ wd_we.weekday.n }}</td>
-                <td class="n-mint">{{ wd_we.weekday.asleep_hours_mean if wd_we.weekday.asleep_hours_mean is not none else '—' }} hr</td>
-                <td>{{ wd_we.weekday.bedtime_mean or '—' }}</td>
-                <td>{{ wd_we.weekday.wake_mean or '—' }}</td>
-            </tr>
-            <tr>
-                <td>weekend (Fri–Sun)</td>
-                <td>{{ wd_we.weekend.n }}</td>
-                <td class="n-mint">{{ wd_we.weekend.asleep_hours_mean if wd_we.weekend.asleep_hours_mean is not none else '—' }} hr</td>
-                <td>{{ wd_we.weekend.bedtime_mean or '—' }}</td>
-                <td>{{ wd_we.weekend.wake_mean or '—' }}</td>
-            </tr>
-        </tbody>
-    </table>
+    <div class="table-scroll">
+        <table>
+            <thead>
+                <tr><th>group</th><th>nights</th><th>avg sleep</th><th>avg bedtime</th><th>avg wake</th></tr>
+            </thead>
+            <tbody>
+                <tr>
+                    <td>weekday (Mon–Thu)</td>
+                    <td>{{ wd_we.weekday.n }}</td>
+                    <td class="n-mint">{{ wd_we.weekday.asleep_hours_mean if wd_we.weekday.asleep_hours_mean is not none else '—' }} hr</td>
+                    <td>{{ wd_we.weekday.bedtime_mean or '—' }}</td>
+                    <td>{{ wd_we.weekday.wake_mean or '—' }}</td>
+                </tr>
+                <tr>
+                    <td>weekend (Fri–Sun)</td>
+                    <td>{{ wd_we.weekend.n }}</td>
+                    <td class="n-mint">{{ wd_we.weekend.asleep_hours_mean if wd_we.weekend.asleep_hours_mean is not none else '—' }} hr</td>
+                    <td>{{ wd_we.weekend.bedtime_mean or '—' }}</td>
+                    <td>{{ wd_we.weekend.wake_mean or '—' }}</td>
+                </tr>
+            </tbody>
+        </table>
+    </div>
     <p class="muted" style="font-size:0.78rem; margin-top: 0.75rem;">large gaps between weekday and weekend midpoints = "social jet lag" — a consistent 1+ hour shift correlates with worse mood, metabolic markers, and recovery in the literature.</p>
 </article>
 {% endblock %}
@@ -99,6 +108,7 @@
     /* Sleep debt — dual-line chart (actual hours + cumulative debt) */
     const debt = {{ debt_curve|tojson }};
     if (debt && debt.length) {
+        autoSizeForPoints('debt_chart', debt.length, window.innerWidth < 700 ? 32 : 22);
         new ApexCharts(document.getElementById('debt_chart'), {
             ...baseChartOptions(),
             chart: { ...baseChartOptions().chart, type: 'line', height: 320 },
@@ -136,8 +146,10 @@
     function renderStage(bucket) {
         const target = document.getElementById('stage_chart');
         target.innerHTML = '';
+        target.style.minWidth = '';
         const payload = STAGE[bucket];
         if (!payload || !payload.datasets || !payload.datasets.length) return;
+        autoSizeForPoints('stage_chart', payload.labels.length, window.innerWidth < 700 ? 28 : 18);
         new ApexCharts(target, {
             ...baseChartOptions(),
             chart: { ...baseChartOptions().chart, type: 'bar', stacked: true, height: 340 },
@@ -165,10 +177,29 @@
         });
     });
 
-    /* Disturbance density line */
-    const dist = {{ disturbances|tojson }};
-    if (dist && dist.length) {
-        renderLine('disturbances', dist, { color: '#ee7aa1', label: 'awake min / asleep hr' });
+    /* Disturbance density — day / week / month toggle */
+    const DIST = {
+        day:   {{ dist_day|tojson }},
+        week:  {{ dist_week|tojson }},
+        month: {{ dist_month|tojson }},
+    };
+    function renderDist(bucket) {
+        const target = document.getElementById('disturbances');
+        target.innerHTML = '';
+        target.style.minWidth = '';
+        const data = DIST[bucket];
+        if (data && data.length) {
+            renderLine('disturbances', data, { color: '#ee7aa1', label: 'awake min / asleep hr' });
+        }
     }
+    renderDist('week');
+    document.querySelectorAll('#dist-toggle a').forEach(a => {
+        a.addEventListener('click', e => {
+            e.preventDefault();
+            document.querySelectorAll('#dist-toggle a').forEach(x => x.classList.remove('on'));
+            a.classList.add('on');
+            renderDist(a.dataset.bucket);
+        });
+    });
 </script>
 {% endblock %}

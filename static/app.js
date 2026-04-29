@@ -52,6 +52,21 @@ function FRIENDLY_SPORT(name) {
     return k.replace(/_/g, ' ');
 }
 
+/* If a chart has more points than will comfortably fit in the viewport,
+ * give the chart container a min-width so the parent .chart-scroll can
+ * actually scroll. Mobile-first: ~22px per point on narrow screens. */
+function autoSizeForPoints(elId, pointCount, pxPerPoint) {
+    const el = document.getElementById(elId);
+    if (!el) return;
+    const ppp = pxPerPoint || (window.innerWidth < 700 ? 22 : 14);
+    const minWidth = pointCount * ppp;
+    if (minWidth > el.clientWidth) {
+        el.style.minWidth = `${minWidth}px`;
+    } else {
+        el.style.minWidth = '';
+    }
+}
+
 /* shared ApexCharts config to keep chart styling consistent */
 function baseChartOptions() {
     return {
@@ -93,6 +108,7 @@ const AXIS_LABEL_STYLE = {
 function renderLine(elId, points, opts = {}) {
     const el = document.getElementById(elId);
     if (!el || !points || !points.length) return;
+    autoSizeForPoints(elId, points.length);
     const colour = opts.color || CHART_COLORS.mint;
     const options = {
         ...baseChartOptions(),
@@ -103,6 +119,7 @@ function renderLine(elId, points, opts = {}) {
             labels: { style: AXIS_LABEL_STYLE, rotate: 0, hideOverlappingLabels: true },
             axisBorder: { show: false },
             axisTicks: { show: false },
+            tickAmount: Math.min(points.length, 10),
         },
         yaxis: {
             labels: { style: AXIS_LABEL_STYLE, formatter: (v) => v == null ? '' : Math.round(v * 100) / 100 },
@@ -122,6 +139,7 @@ function renderLine(elId, points, opts = {}) {
 function renderStackedBar(elId, payload, labelTransform) {
     const el = document.getElementById(elId);
     if (!el || !payload || !payload.datasets || !payload.datasets.length) return;
+    autoSizeForPoints(elId, payload.labels.length, window.innerWidth < 700 ? 28 : 18);
     const series = payload.datasets.map(ds => ({
         name: labelTransform ? labelTransform(ds.label) : ds.label,
         data: ds.data,
@@ -136,6 +154,7 @@ function renderStackedBar(elId, payload, labelTransform) {
             labels: { style: AXIS_LABEL_STYLE, hideOverlappingLabels: true },
             axisBorder: { show: false },
             axisTicks: { show: false },
+            tickAmount: Math.min(payload.labels.length, 12),
         },
         yaxis: { labels: { style: AXIS_LABEL_STYLE } },
         colors: colours,
