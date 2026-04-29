@@ -10,7 +10,7 @@
 </head>
 <body>
 <div class="container build-banner">
-    <small>build <code>{{ build_sha }}</code> · deployed {{ build_time }} UTC</small>
+    <small>build <code>{{ build_sha }}</code> · deployed <time data-utc="{{ build_time }}">{{ build_time }} UTC</time></small>
 </div>
 <header class="container topbar">
     <a href="{{ url_for('dashboard.index') }}" class="brand">Whoop Insights</a>

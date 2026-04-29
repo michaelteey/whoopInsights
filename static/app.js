@@ -1,3 +1,20 @@
+// Convert any <time data-utc="..."> elements to the user's local timezone.
+document.querySelectorAll('time[data-utc]').forEach(el => {
+    const utc = el.dataset.utc;
+    if (!utc || utc === 'unknown' || utc === 'local') return;
+    const d = new Date(utc.endsWith('Z') ? utc : utc + 'Z');
+    if (isNaN(d.getTime())) return;
+    const tz = Intl.DateTimeFormat().resolvedOptions().timeZone;
+    const tzShort = new Intl.DateTimeFormat('en', { timeZoneName: 'short' })
+        .formatToParts(d).find(p => p.type === 'timeZoneName')?.value || tz;
+    const formatted = d.toLocaleString('en-GB', {
+        year: 'numeric', month: 'short', day: '2-digit',
+        hour: '2-digit', minute: '2-digit', hour12: false,
+    });
+    el.textContent = `${formatted} ${tzShort}`;
+    el.title = `${utc} (UTC)`;
+});
+
 function renderLine(canvasId, points) {
     const el = document.getElementById(canvasId);
     if (!el || !points || !points.length) return;
