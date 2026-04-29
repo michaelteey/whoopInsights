@@ -1,16 +1,150 @@
-:root {
-    --pico-font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Helvetica, Arial, sans-serif;
+/*
+ * Premium dark fitness aesthetic — visually adjacent to the category but
+ * deliberately not a copy of any one product's signature elements (no
+ * recovery donut, no strain bar, distinct accent palette).
+ */
+
+:root,
+:root[data-theme="light"],
+:root[data-theme="dark"] {
+    --pico-font-family: ui-sans-serif, -apple-system, BlinkMacSystemFont, "Inter", "Segoe UI", Helvetica, Arial, sans-serif;
+    --pico-font-weight: 400;
+
+    --pico-background-color: #0a0c0e;
+    --pico-color: #e6e8eb;
+    --pico-muted-color: #6b7177;
+    --pico-muted-border-color: #1c2024;
+    --pico-card-background-color: #11141a;
+    --pico-card-sectioning-background-color: #0e1115;
+    --pico-card-border-color: #1c2024;
+    --pico-form-element-background-color: #14181f;
+    --pico-form-element-border-color: #232830;
+    --pico-form-element-color: #e6e8eb;
+    --pico-primary: #5fbf9f;
+    --pico-primary-hover: #6fd0af;
+    --pico-primary-background: #5fbf9f;
+    --pico-primary-border: #5fbf9f;
+    --pico-primary-inverse: #0a0c0e;
+    --pico-primary-focus: rgba(95, 191, 159, 0.25);
+    --pico-secondary: #2a2e36;
+    --pico-secondary-hover: #353a44;
+    --pico-secondary-background: #2a2e36;
+    --pico-secondary-border: #2a2e36;
+    --pico-secondary-inverse: #e6e8eb;
+    --pico-h1-color: #f6f8fa;
+    --pico-h2-color: #f6f8fa;
+    --pico-h3-color: #c8cdd3;
+    --pico-table-border-color: #1c2024;
+    --pico-table-row-stripped-background-color: #0e1115;
+    --pico-mark-background-color: #5fbf9f;
+    --pico-mark-color: #0a0c0e;
 }
+
+html, body {
+    background: var(--pico-background-color);
+    color: var(--pico-color);
+}
+
+body {
+    font-feature-settings: "ss01", "cv02", "cv03";
+    letter-spacing: -0.005em;
+}
+
+main.container {
+    padding-block: 1rem 4rem;
+}
+
+article {
+    border: 1px solid var(--pico-card-border-color);
+    border-radius: 8px;
+    padding: 1.25rem;
+    margin-bottom: 1rem;
+    background: var(--pico-card-background-color);
+}
+
+h1 {
+    font-weight: 700;
+    letter-spacing: -0.025em;
+    line-height: 1.1;
+    margin-bottom: 0.5rem;
+}
+h2, h3 {
+    font-weight: 600;
+    letter-spacing: -0.015em;
+}
+h3 {
+    font-size: 0.85rem;
+    font-weight: 500;
+    text-transform: uppercase;
+    letter-spacing: 0.06em;
+    color: var(--pico-muted-color);
+}
+
+a { color: var(--pico-primary); text-decoration: none; }
+a:hover { color: var(--pico-primary-hover); text-decoration: underline; }
+
+button, [role="button"] {
+    font-weight: 600;
+    letter-spacing: 0;
+    border-radius: 6px;
+}
+
+table {
+    width: 100%;
+    border-collapse: collapse;
+}
+th {
+    font-size: 0.75rem;
+    font-weight: 500;
+    text-transform: uppercase;
+    letter-spacing: 0.06em;
+    color: var(--pico-muted-color);
+    text-align: left;
+    border-bottom: 1px solid var(--pico-table-border-color);
+    padding: 0.6rem 0.75rem;
+}
+td {
+    padding: 0.7rem 0.75rem;
+    border-bottom: 1px solid var(--pico-table-border-color);
+    font-size: 0.92rem;
+}
+tr:last-child td { border-bottom: none; }
+tbody tr:hover { background: var(--pico-card-sectioning-background-color); }
+
+select, input[type="text"], input[type="number"] {
+    background: var(--pico-form-element-background-color);
+    border: 1px solid var(--pico-form-element-border-color);
+    color: var(--pico-form-element-color);
+    border-radius: 6px;
+}
+
+progress {
+    width: 100%;
+    height: 6px;
+    border-radius: 999px;
+    background: var(--pico-form-element-background-color);
+}
+progress::-webkit-progress-bar { background: var(--pico-form-element-background-color); border-radius: 999px; }
+progress::-webkit-progress-value { background: var(--pico-primary); border-radius: 999px; transition: width 0.3s ease; }
+progress::-moz-progress-bar { background: var(--pico-primary); border-radius: 999px; }
+
+code {
+    background: var(--pico-card-sectioning-background-color);
+    color: var(--pico-color);
+    padding: 0.1rem 0.35rem;
+    border-radius: 4px;
+    font-size: 0.85em;
+}
+
+/* ---- layout-specific ---- */
 
 .build-banner {
     padding-top: 0.5rem;
     color: var(--pico-muted-color);
-    font-size: 0.75rem;
+    font-size: 0.7rem;
+    letter-spacing: 0.02em;
 }
-.build-banner code {
-    font-size: 0.75rem;
-    padding: 0 0.25rem;
-}
+.build-banner code { font-size: 0.7rem; padding: 0 0.3rem; background: transparent; color: var(--pico-color); }
 
 .topbar {
     display: flex;
@@ -19,17 +153,24 @@
     flex-wrap: wrap;
     gap: 0.75rem;
     padding-block: 1rem;
+    border-bottom: 1px solid var(--pico-card-border-color);
+    margin-bottom: 1.5rem;
 }
 .topbar .brand {
     font-weight: 700;
+    letter-spacing: -0.02em;
     text-decoration: none;
+    color: var(--pico-color);
+    font-size: 1.05rem;
 }
 .topbar nav {
     display: flex;
-    gap: 1rem;
+    gap: 1.5rem;
     flex-wrap: wrap;
-    font-size: 0.9rem;
+    font-size: 0.88rem;
 }
+.topbar nav a { color: var(--pico-muted-color); }
+.topbar nav a:hover { color: var(--pico-color); text-decoration: none; }
 
 .head {
     display: flex;
@@ -37,34 +178,38 @@
     align-items: baseline;
     gap: 1rem;
     flex-wrap: wrap;
+    margin-bottom: 1.25rem;
 }
 
 .hero {
-    text-align: left;
-    padding: 1.5rem;
+    padding: 2rem 1.5rem;
 }
-.hero h1 { line-height: 1.15; }
-.lede { color: var(--pico-muted-color); }
+.hero h1 { line-height: 1.1; font-size: 2rem; }
+.lede { color: var(--pico-muted-color); font-size: 1rem; max-width: 60ch; }
 
+.stat-grid {
+    grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
+    gap: 0.75rem;
+}
 .stat-grid article {
     text-align: left;
     padding: 1rem 1.1rem;
+    margin-bottom: 0;
 }
 .stat-grid h3 {
-    font-size: 0.8rem;
-    font-weight: 500;
-    text-transform: uppercase;
-    letter-spacing: 0.04em;
-    color: var(--pico-muted-color);
-    margin: 0 0 0.25rem;
+    font-size: 0.7rem;
+    margin: 0 0 0.4rem;
 }
 .stat-grid .stat {
-    font-size: 1.9rem;
+    font-size: 1.75rem;
     font-weight: 700;
     margin: 0;
-    line-height: 1.1;
+    line-height: 1.05;
+    letter-spacing: -0.02em;
+    color: var(--pico-color);
+    font-feature-settings: "tnum";
 }
-.stat-grid small { color: var(--pico-muted-color); }
+.stat-grid small { color: var(--pico-muted-color); font-size: 0.75rem; }
 
 .range {
     display: flex;
@@ -72,12 +217,15 @@
     flex-wrap: wrap;
 }
 .range a {
-    padding: 0.25rem 0.6rem;
+    padding: 0.3rem 0.7rem;
     border-radius: 999px;
-    border: 1px solid var(--pico-muted-border-color);
+    border: 1px solid var(--pico-card-border-color);
     text-decoration: none;
-    font-size: 0.85rem;
+    font-size: 0.8rem;
+    color: var(--pico-muted-color);
+    background: var(--pico-card-background-color);
 }
+.range a:hover { color: var(--pico-color); }
 .range a.on {
     background: var(--pico-primary);
     color: var(--pico-primary-inverse);
@@ -87,14 +235,27 @@
 .flash {
     padding: 0.75rem 1rem;
     margin-bottom: 1rem;
-    border-radius: 0.5rem;
+    border-radius: 6px;
+    font-size: 0.9rem;
 }
-.flash-success { background: #1f3b2c; color: #d8f5e3; }
-.flash-error { background: #4a1c1c; color: #f5d8d8; }
+.flash-success { background: rgba(95, 191, 159, 0.12); color: #b6e8d4; border: 1px solid rgba(95, 191, 159, 0.3); }
+.flash-error   { background: rgba(232, 122, 138, 0.12); color: #f0c4cc; border: 1px solid rgba(232, 122, 138, 0.3); }
 
-.exercise-list a { font-weight: 600; }
+.sync-form {
+    display: flex;
+    gap: 0.5rem;
+    align-items: center;
+}
+.sync-form select { padding: 0.4rem 0.5rem; font-size: 0.85rem; }
+.sync-form button { padding: 0.4rem 1rem; font-size: 0.85rem; }
 
-@media (max-width: 600px) {
-    .stat-grid .stat { font-size: 1.5rem; }
-    .topbar { flex-direction: column; align-items: flex-start; }
+.muted { color: var(--pico-muted-color); }
+
+@media (max-width: 700px) {
+    h1 { font-size: 1.5rem; }
+    .topbar { flex-direction: column; align-items: flex-start; gap: 0.5rem; padding-block: 0.75rem; }
+    .topbar nav { gap: 1rem; }
+    .stat-grid .stat { font-size: 1.4rem; }
+    article { padding: 1rem; }
+    th, td { padding: 0.5rem 0.5rem; font-size: 0.85rem; }
 }

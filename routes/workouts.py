@@ -29,8 +29,13 @@ def index():
     db = get_db()
     sports = analytics.workout_summary_by_sport(db, user_id)
     weekly_all = analytics.weekly_session_counts(db, user_id, sport_name=None, weeks=52)
+    stacked = analytics.weekly_stacked_by_sport(db, user_id, weeks=52, top_n=8)
+    kcal = analytics.calories_by_sport(db, user_id, top_n=12)
     return render_template("workouts_index.html",
-                           sports=sports, weekly_all=weekly_all)
+                           sports=sports,
+                           weekly_all=weekly_all,
+                           stacked=stacked,
+                           kcal=kcal)
 
 
 @bp.route("/<path:sport_name>")

@@ -29,6 +29,9 @@ def create_app() -> Flask:
     app.register_blueprint(strength.bp)
     app.register_blueprint(workouts.bp)
 
+    from analytics import sports
+    app.jinja_env.filters["friendly_sport"] = sports.friendly
+
     @app.context_processor
     def inject_build_info():
         sha = os.getenv("COMMIT_SHA", "dev")

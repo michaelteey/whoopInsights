@@ -9,41 +9,88 @@
 {% if not sports %}
     <article><p>No workouts synced yet. Run a sync from the Overview.</p></article>
 {% else %}
+
+{% set total_sessions = sports|sum(attribute='session_count') %}
+<section class="grid stat-grid">
+    <article>
+        <h3>Total sessions</h3>
+        <p class="stat">{{ total_sessions }}</p>
+        <small>across {{ sports|length }} sports</small>
+    </article>
+    <article>
+        <h3>Most recent</h3>
+        <p class="stat">{{ sports[0].sport_name|friendly_sport }}</p>
+        <small>{{ sports[0].last_at[:10] if sports[0].last_at else '—' }}</small>
+    </article>
+</section>
+
 <article>
-    <h3>Sessions per week (all sports)</h3>
+    <h3>Sessions per week, stacked by sport</h3>
+    <canvas id="weekly_stacked"></canvas>
+</article>
+
+<article>
+    <h3>Total sessions per week</h3>
     <canvas id="weekly_all"></canvas>
 </article>
 
-<table>
-    <thead>
-        <tr>
-            <th>Sport</th>
-            <th>Sessions</th>
-            <th>Last performed</th>
-            <th>First seen</th>
-            <th>Avg strain</th>
-        </tr>
-    </thead>
-    <tbody>
-        {% for s in sports %}
+{% if kcal %}
+<article>
+    <h3>Top calorie burners</h3>
+    <canvas id="kcal_by_sport"></canvas>
+</article>
+{% endif %}
+
+<article>
+    <h3>By sport</h3>
+    <table>
+        <thead>
             <tr>
-                <td><a href="{{ url_for('workouts.detail', sport_name=s.sport_name) }}">{{ s.sport_name or '(unknown)' }}</a></td>
-                <td>{{ s.session_count }}</td>
-                <td><time data-utc="{{ s.last_at }}">{{ s.last_at[:10] if s.last_at else '—' }}</time></td>
-                <td>{{ s.first_at[:10] if s.first_at else '—' }}</td>
-                <td>{{ '%.1f' % s.avg_strain if s.avg_strain else '—' }}</td>
+                <th>Sport</th>
+                <th>Sessions</th>
+                <th>Last</th>
+                <th>Avg duration</th>
+                <th>Total kcal</th>
+                <th>Avg strain</th>
             </tr>
-        {% endfor %}
-    </tbody>
-</table>
+        </thead>
+        <tbody>
+            {% for s in sports %}
+                <tr>
+                    <td><a href="{{ url_for('workouts.detail', sport_name=s.sport_name) }}">{{ s.sport_name|friendly_sport }}</a></td>
+                    <td>{{ s.session_count }}</td>
+                    <td><time data-utc="{{ s.last_at }}">{{ s.last_at[:10] if s.last_at else '—' }}</time></td>
+                    <td>{{ s.avg_minutes }} min</td>
+                    <td>{{ '{:,}'.format(s.total_kcal) if s.total_kcal else '—' }}</td>
+                    <td>{{ '%.1f' % s.avg_strain if s.avg_strain else '—' }}</td>
+                </tr>
+            {% endfor %}
+        </tbody>
+    </table>
+</article>
 {% endif %}
 {% endblock %}
 
 {% block scripts %}
 <script>
+    const stacked = {{ stacked|tojson }};
+    if (stacked && stacked.datasets) {
+        renderStackedBar('weekly_stacked', stacked, FRIENDLY_SPORT);
+    }
+
     const weeklyAll = {{ weekly_all|tojson }};
     if (weeklyAll && weeklyAll.length) {
         renderLine('weekly_all', weeklyAll.map(p => ({day: p.week, value: p.value})));
+    }
+
+    const kcal = {{ kcal|tojson }};
+    if (kcal && kcal.length) {
+        renderHorizontalBar(
+            'kcal_by_sport',
+            kcal.map(k => FRIENDLY_SPORT(k.sport_name)),
+            kcal.map(k => k.kcal),
+            'kcal',
+        );
     }
 </script>
 {% endblock %}
