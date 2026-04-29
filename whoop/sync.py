@@ -17,13 +17,20 @@ def _iso(dt: datetime) -> str:
 
 def sync_user(conn: sqlite3.Connection, user_id: int, client: WhoopClient,
               lookback_days: int = 365) -> dict:
-    """Pull recent data for one user. Returns counts per entity."""
+    """Pull recent data for one user. Returns counts per entity.
+
+    Each list endpoint paginates server-side at 25 records/page. For a year
+    of data that's roughly 60 total HTTP calls, well under Whoop's 100/min
+    rate limit. The client retries on 429 just in case.
+    """
     end = datetime.now(timezone.utc)
     start = end - timedelta(days=lookback_days)
+    s, e = _iso(start), _iso(end)
     counts = {
-        "cycles": _sync_cycles(conn, user_id, client, _iso(start), _iso(end)),
-        "sleeps": _sync_sleeps(conn, user_id, client, _iso(start), _iso(end)),
-        "workouts": _sync_workouts(conn, user_id, client, _iso(start), _iso(end)),
+        "cycles": _sync_cycles(conn, user_id, client, s, e),
+        "recoveries": _sync_recoveries(conn, user_id, client, s, e),
+        "sleeps": _sync_sleeps(conn, user_id, client, s, e),
+        "workouts": _sync_workouts(conn, user_id, client, s, e),
     }
     conn.execute(
         "UPDATE users SET last_synced_at = datetime('now') WHERE id = ?",
@@ -63,35 +70,45 @@ def _sync_cycles(conn, user_id, client, start, end) -> int:
                 dumps(cycle),
             ),
         )
-        recovery = client.recovery_for_cycle(str(cycle["id"]))
-        if recovery:
-            rscore = recovery.get("score") or {}
-            conn.execute(
-                """
-                INSERT INTO recoveries (cycle_id, user_id, recorded_at, recovery_score,
-                                        resting_heart_rate, hrv_rmssd_milli,
-                                        spo2_percentage, skin_temp_celsius, raw)
-                VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
-                ON CONFLICT(cycle_id) DO UPDATE SET
-                    recovery_score = excluded.recovery_score,
-                    resting_heart_rate = excluded.resting_heart_rate,
-                    hrv_rmssd_milli = excluded.hrv_rmssd_milli,
-                    spo2_percentage = excluded.spo2_percentage,
-                    skin_temp_celsius = excluded.skin_temp_celsius,
-                    raw = excluded.raw
-                """,
-                (
-                    str(cycle["id"]),
-                    user_id,
-                    recovery.get("created_at") or cycle.get("start"),
-                    rscore.get("recovery_score"),
-                    rscore.get("resting_heart_rate"),
-                    rscore.get("hrv_rmssd_milli"),
-                    rscore.get("spo2_percentage"),
-                    rscore.get("skin_temp_celsius"),
-                    dumps(recovery),
-                ),
-            )
+        n += 1
+    return n
+
+
+def _sync_recoveries(conn, user_id, client, start, end) -> int:
+    """Pulls recoveries via the list endpoint — one paginated stream rather
+    than one HTTP call per cycle."""
+    n = 0
+    for recovery in client.recoveries(start=start, end=end):
+        cycle_id = str(recovery.get("cycle_id"))
+        if not cycle_id or cycle_id == "None":
+            continue
+        rscore = recovery.get("score") or {}
+        conn.execute(
+            """
+            INSERT INTO recoveries (cycle_id, user_id, recorded_at, recovery_score,
+                                    resting_heart_rate, hrv_rmssd_milli,
+                                    spo2_percentage, skin_temp_celsius, raw)
+            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
+            ON CONFLICT(cycle_id) DO UPDATE SET
+                recovery_score = excluded.recovery_score,
+                resting_heart_rate = excluded.resting_heart_rate,
+                hrv_rmssd_milli = excluded.hrv_rmssd_milli,
+                spo2_percentage = excluded.spo2_percentage,
+                skin_temp_celsius = excluded.skin_temp_celsius,
+                raw = excluded.raw
+            """,
+            (
+                cycle_id,
+                user_id,
+                recovery.get("created_at") or recovery.get("updated_at"),
+                rscore.get("recovery_score"),
+                rscore.get("resting_heart_rate"),
+                rscore.get("hrv_rmssd_milli"),
+                rscore.get("spo2_percentage"),
+                rscore.get("skin_temp_celsius"),
+                dumps(recovery),
+            ),
+        )
         n += 1
     return n
 

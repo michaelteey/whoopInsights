@@ -1,3 +1,4 @@
+import time
 from datetime import datetime, timezone
 from typing import Iterator
 
@@ -10,9 +11,12 @@ from whoop import oauth
 class WhoopClient:
     """Thin wrapper around the Whoop developer API.
 
-    Pages through list endpoints automatically. Refreshes the access token
-    in-place when it expires.
+    Auto-paginates list endpoints, auto-refreshes the access token, and
+    backs off on 429 (rate limit) responses.
     """
+
+    PAGE_LIMIT = 25  # Whoop's documented max is 25
+    MAX_RETRIES = 5
 
     def __init__(self, access_token: str, refresh_token: str, expires_at: str,
                  on_token_refresh=None):
@@ -32,18 +36,30 @@ class WhoopClient:
 
     def _get(self, path: str, params: dict | None = None) -> dict:
         self._ensure_fresh()
-        resp = requests.get(
-            f"{Config.WHOOP_API_BASE}{path}",
-            params=params,
-            headers={"Authorization": f"Bearer {self.access_token}"},
-            timeout=20,
-        )
+        url = f"{Config.WHOOP_API_BASE}{path}"
+        for attempt in range(self.MAX_RETRIES):
+            resp = requests.get(
+                url,
+                params=params,
+                headers={"Authorization": f"Bearer {self.access_token}"},
+                timeout=20,
+            )
+            if resp.status_code == 429:
+                # Honour Retry-After if present, else exponential backoff capped at 30s.
+                wait = float(resp.headers.get("Retry-After", min(2 ** attempt, 30)))
+                time.sleep(wait)
+                continue
+            if 500 <= resp.status_code < 600 and attempt < self.MAX_RETRIES - 1:
+                time.sleep(min(2 ** attempt, 10))
+                continue
+            resp.raise_for_status()
+            return resp.json()
         resp.raise_for_status()
         return resp.json()
 
     def _paginate(self, path: str, params: dict | None = None) -> Iterator[dict]:
         params = dict(params or {})
-        params.setdefault("limit", 25)
+        params.setdefault("limit", self.PAGE_LIMIT)
         while True:
             page = self._get(path, params)
             for record in page.get("records", []):
@@ -53,37 +69,33 @@ class WhoopClient:
                 return
             params["nextToken"] = next_token
 
+    # ---- public endpoints ----
+
     def profile(self) -> dict:
         return self._get("/v1/user/profile/basic")
 
     def cycles(self, start: str | None = None, end: str | None = None) -> Iterator[dict]:
-        params = {}
-        if start:
-            params["start"] = start
-        if end:
-            params["end"] = end
-        yield from self._paginate("/v1/cycle", params)
+        yield from self._paginate("/v1/cycle", _range(start, end))
 
-    def recovery_for_cycle(self, cycle_id: str) -> dict | None:
-        try:
-            return self._get(f"/v1/cycle/{cycle_id}/recovery")
-        except requests.HTTPError as e:
-            if e.response is not None and e.response.status_code == 404:
-                return None
-            raise
+    def recoveries(self, start: str | None = None, end: str | None = None) -> Iterator[dict]:
+        """List all recoveries in one paginated stream (one call per ~25 records).
+
+        Replaces the cycle-by-cycle recovery_for_cycle() pattern that was
+        causing N+1 calls and hammering the rate limit.
+        """
+        yield from self._paginate("/v1/recovery", _range(start, end))
 
     def sleeps(self, start: str | None = None, end: str | None = None) -> Iterator[dict]:
-        params = {}
-        if start:
-            params["start"] = start
-        if end:
-            params["end"] = end
-        yield from self._paginate("/v1/activity/sleep", params)
+        yield from self._paginate("/v1/activity/sleep", _range(start, end))
 
     def workouts(self, start: str | None = None, end: str | None = None) -> Iterator[dict]:
-        params = {}
-        if start:
-            params["start"] = start
-        if end:
-            params["end"] = end
-        yield from self._paginate("/v1/activity/workout", params)
+        yield from self._paginate("/v1/activity/workout", _range(start, end))
+
+
+def _range(start: str | None, end: str | None) -> dict:
+    params = {}
+    if start:
+        params["start"] = start
+    if end:
+        params["end"] = end
+    return params

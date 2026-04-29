@@ -90,10 +90,12 @@ def sync():
         tok["access_token"], tok["refresh_token"], tok["expires_at"],
         on_token_refresh=persist,
     )
-    counts = sync_user(db, user_id, client)
+    days = int(request.form.get("days", 30))
+    counts = sync_user(db, user_id, client, lookback_days=days)
     flash(
-        f"Synced {counts['cycles']} cycles, {counts['sleeps']} sleeps, "
-        f"{counts['workouts']} workouts.",
+        f"Synced {counts['cycles']} cycles, {counts['recoveries']} recoveries, "
+        f"{counts['sleeps']} sleeps, {counts['workouts']} workouts "
+        f"(last {days} days).",
         "success",
     )
     return redirect(url_for("dashboard.index"))
