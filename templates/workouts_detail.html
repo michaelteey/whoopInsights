@@ -2,7 +2,15 @@
 {% block title %}{{ sport_name }} · Workouts{% endblock %}
 {% block content %}
 <section class="head">
-    <h1>{{ sport_name|friendly_sport }} <small style="color: var(--pico-muted-color); font-size: 1rem;">· {{ sessions|length }} sessions</small></h1>
+    <h1>{{ sport_name|friendly_sport }}
+        <small style="color: var(--pico-muted-color); font-size: 1rem;">
+            · {{ sessions|length }} sessions
+            {% if sessions and sessions[0].sport_id is not none %}
+                · sport_id {{ sessions[0].sport_id }}
+            {% endif %}
+            · API: <code>{{ sport_name }}</code>
+        </small>
+    </h1>
     <a href="{{ url_for('workouts.index') }}">← all sports</a>
 </section>
 

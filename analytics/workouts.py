@@ -10,7 +10,10 @@ _KJ_TO_KCAL = 0.239006
 
 def workout_summary_by_sport(conn: sqlite3.Connection, user_id: int) -> list[dict]:
     """One row per sport, ordered by most-recently-performed first.
-    Includes session count, total calories, average duration, average strain."""
+    Includes session count, total calories, average duration, average strain.
+    sport_ids is a comma-separated list of every sport_id we've seen for this
+    sport_name — useful for verifying the API mapping (e.g., that Strength
+    Trainer really is sport_id 123)."""
     rows = conn.execute(
         """
         SELECT sport_name,
@@ -21,7 +24,8 @@ def workout_summary_by_sport(conn: sqlite3.Connection, user_id: int) -> list[dic
                MAX(strain)                                                      AS max_strain,
                SUM(kilojoule)                                                   AS total_kj,
                AVG((julianday(end_at) - julianday(start_at)) * 24 * 60)         AS avg_minutes,
-               SUM((julianday(end_at) - julianday(start_at)) * 24 * 60)         AS total_minutes
+               SUM((julianday(end_at) - julianday(start_at)) * 24 * 60)         AS total_minutes,
+               GROUP_CONCAT(DISTINCT sport_id)                                  AS sport_ids
         FROM workouts
         WHERE user_id = ?
         GROUP BY sport_name
@@ -33,7 +37,9 @@ def workout_summary_by_sport(conn: sqlite3.Connection, user_id: int) -> list[dic
     for r in rows:
         d = dict(r)
         kj = d.get("total_kj") or 0
+        sessions = d.get("session_count") or 0
         d["total_kcal"] = round(kj * _KJ_TO_KCAL)
+        d["avg_kcal"] = round((kj * _KJ_TO_KCAL) / sessions) if sessions else 0
         d["avg_minutes"] = round(d["avg_minutes"]) if d["avg_minutes"] else 0
         d["total_minutes"] = round(d["total_minutes"]) if d["total_minutes"] else 0
         out.append(d)
@@ -69,7 +75,7 @@ def sessions_for_sport(conn: sqlite3.Connection, user_id: int,
     """Most-recent N sessions of one sport."""
     rows = conn.execute(
         """
-        SELECT id, start_at, end_at, strain, avg_hr, max_hr, kilojoule
+        SELECT id, sport_id, start_at, end_at, strain, avg_hr, max_hr, kilojoule
         FROM workouts
         WHERE user_id = ? AND LOWER(sport_name) = LOWER(?)
         ORDER BY start_at DESC

@@ -47,9 +47,11 @@
         <thead>
             <tr>
                 <th>Sport</th>
+                <th>id</th>
                 <th>Sessions</th>
                 <th>Last</th>
                 <th>Avg duration</th>
+                <th>Avg kcal</th>
                 <th>Total kcal</th>
                 <th>Avg strain</th>
             </tr>
@@ -58,9 +60,11 @@
             {% for s in sports %}
                 <tr>
                     <td><a href="{{ url_for('workouts.detail', sport_name=s.sport_name) }}">{{ s.sport_name|friendly_sport }}</a></td>
+                    <td><small class="muted">{{ s.sport_ids or '—' }}</small></td>
                     <td>{{ s.session_count }}</td>
                     <td><time data-utc="{{ s.last_at }}">{{ s.last_at[:10] if s.last_at else '—' }}</time></td>
                     <td>{{ s.avg_minutes }} min</td>
+                    <td>{{ '{:,}'.format(s.avg_kcal) if s.avg_kcal else '—' }}</td>
                     <td>{{ '{:,}'.format(s.total_kcal) if s.total_kcal else '—' }}</td>
                     <td>{{ '%.1f' % s.avg_strain if s.avg_strain else '—' }}</td>
                 </tr>
