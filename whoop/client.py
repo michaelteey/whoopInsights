@@ -71,25 +71,24 @@ class WhoopClient:
 
     # ---- public endpoints ----
 
+    # All endpoints are v2 — Whoop deprecated v1 in 09/2025.
+    # /v1/cycle still resolves (likely redirected) but the other v1 paths
+    # 404. Standardising on v2 across the board.
+
     def profile(self) -> dict:
-        return self._get("/v1/user/profile/basic")
+        return self._get("/v2/user/profile/basic")
 
     def cycles(self, start: str | None = None, end: str | None = None) -> Iterator[dict]:
-        yield from self._paginate("/v1/cycle", _range(start, end))
+        yield from self._paginate("/v2/cycle", _range(start, end))
 
     def recoveries(self, start: str | None = None, end: str | None = None) -> Iterator[dict]:
-        """List all recoveries in one paginated stream (one call per ~25 records).
-
-        Replaces the cycle-by-cycle recovery_for_cycle() pattern that was
-        causing N+1 calls and hammering the rate limit.
-        """
-        yield from self._paginate("/v1/recovery", _range(start, end))
+        yield from self._paginate("/v2/recovery", _range(start, end))
 
     def sleeps(self, start: str | None = None, end: str | None = None) -> Iterator[dict]:
-        yield from self._paginate("/v1/activity/sleep", _range(start, end))
+        yield from self._paginate("/v2/activity/sleep", _range(start, end))
 
     def workouts(self, start: str | None = None, end: str | None = None) -> Iterator[dict]:
-        yield from self._paginate("/v1/activity/workout", _range(start, end))
+        yield from self._paginate("/v2/activity/workout", _range(start, end))
 
 
 def _range(start: str | None, end: str | None) -> dict:
