@@ -6,8 +6,8 @@ primary_region = "lhr"  # London. Change to your nearest: https://fly.io/docs/re
 
 [build]
 
-[env]
-  USE_SAMPLE_DATA = "false"
+# Prefer setting USE_SAMPLE_DATA via `fly secrets set` so it can be toggled
+# without redeploying via fly.toml. Default in the Dockerfile is "false".
 
 [http_service]
   internal_port = 8080
