@@ -1,0 +1,61 @@
+{% extends "base.html" %}
+{% block title %}{{ sport_name }} · Workouts{% endblock %}
+{% block content %}
+<section class="head">
+    <h1>{{ sport_name }}</h1>
+    <a href="{{ url_for('workouts.index') }}">← all sports</a>
+</section>
+
+{% if sessions %}
+<section class="grid stat-grid">
+    <article>
+        <h3>Sessions</h3>
+        <p class="stat">{{ sessions|length }}</p>
+    </article>
+    <article>
+        <h3>Last</h3>
+        <p class="stat">{{ sessions[0].start_at[:10] }}</p>
+    </article>
+    <article>
+        <h3>First</h3>
+        <p class="stat">{{ sessions[-1].start_at[:10] }}</p>
+    </article>
+</section>
+
+<article>
+    <h3>Sessions per week</h3>
+    <canvas id="weekly"></canvas>
+</article>
+
+<article>
+    <h3>Recent sessions</h3>
+    <table>
+        <thead>
+            <tr><th>Date</th><th>Strain</th><th>Avg HR</th><th>Max HR</th><th>kJ</th></tr>
+        </thead>
+        <tbody>
+            {% for s in sessions[:50] %}
+                <tr>
+                    <td><time data-utc="{{ s.start_at }}">{{ s.start_at[:16] }}</time></td>
+                    <td>{{ '%.1f' % s.strain if s.strain else '—' }}</td>
+                    <td>{{ s.avg_hr or '—' }}</td>
+                    <td>{{ s.max_hr or '—' }}</td>
+                    <td>{{ s.kilojoule|round(0)|int if s.kilojoule else '—' }}</td>
+                </tr>
+            {% endfor %}
+        </tbody>
+    </table>
+</article>
+{% else %}
+<article><p>No sessions of this sport yet.</p></article>
+{% endif %}
+{% endblock %}
+
+{% block scripts %}
+<script>
+    const weekly = {{ weekly|tojson }};
+    if (weekly && weekly.length) {
+        renderLine('weekly', weekly.map(p => ({day: p.week, value: p.value})));
+    }
+</script>
+{% endblock %}

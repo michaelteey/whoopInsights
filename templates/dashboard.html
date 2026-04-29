@@ -16,15 +16,23 @@
 {% else %}
     <section class="head">
         <h1>Hi {{ user['first_name'] or 'there' }}.</h1>
-        <form method="post" action="{{ url_for('dashboard.sync') }}" class="sync-form">
-            <select name="days">
+        <div class="sync-form">
+            <select id="sync-days">
                 <option value="30">last 30 days</option>
                 <option value="90">last 90 days</option>
                 <option value="180">last 6 months</option>
                 <option value="365">last year</option>
             </select>
-            <button type="submit">Sync now</button>
-        </form>
+            <button id="sync-btn" type="button">Sync now</button>
+        </div>
+    </section>
+
+    <section id="sync-progress" hidden>
+        <article>
+            <p id="sync-status">Starting…</p>
+            <progress id="sync-bar" value="0" max="1"></progress>
+            <small id="sync-totals" class="muted"></small>
+        </article>
     </section>
 
     <section class="grid stat-grid">
@@ -67,5 +75,68 @@
             <li><a href="{{ url_for('dashboard.trends_view') }}">Long-range trends →</a></li>
         </ul>
     </section>
+{% endif %}
+{% endblock %}
+
+{% block scripts %}
+{% if user %}
+<script>
+(() => {
+    const btn       = document.getElementById('sync-btn');
+    const days      = document.getElementById('sync-days');
+    const panel     = document.getElementById('sync-progress');
+    const status    = document.getElementById('sync-status');
+    const bar       = document.getElementById('sync-bar');
+    const totalsEl  = document.getElementById('sync-totals');
+    if (!btn) return;
+
+    btn.addEventListener('click', () => {
+        btn.disabled = true;
+        days.disabled = true;
+        panel.hidden = false;
+        status.textContent = 'Connecting…';
+        bar.value = 0;
+        totalsEl.textContent = '';
+
+        const es = new EventSource(`/sync/stream?days=${days.value}`);
+
+        es.onmessage = (msg) => {
+            const ev = JSON.parse(msg.data);
+            if (ev.event === 'start') {
+                status.textContent = `Syncing last ${ev.lookback_days} days · 0 / ${ev.total_chunks} weeks`;
+                bar.max = ev.total_chunks;
+            } else if (ev.event === 'chunk_done' || ev.event === 'chunk_failed') {
+                bar.value = ev.chunk;
+                const verb = ev.event === 'chunk_failed' ? 'failed' : 'done';
+                status.textContent = `Week ${ev.chunk} / ${ev.total_chunks} · ${ev.label} · ${verb}`;
+                const t = ev.totals;
+                totalsEl.textContent =
+                    `${t.cycles} cycles · ${t.recoveries} recoveries · ` +
+                    `${t.sleeps} sleeps · ${t.workouts} workouts · ${t.strength_sets} strength sets`;
+            } else if (ev.event === 'complete' || ev.event === 'fatal') {
+                es.close();
+                btn.disabled = false;
+                days.disabled = false;
+                if (ev.event === 'fatal') {
+                    status.textContent = `Failed: ${ev.error}`;
+                } else {
+                    const t = ev.totals;
+                    status.textContent = `Done. ${t.chunks_ok} of ${t.chunks_ok + t.chunks_failed} weeks ok.`;
+                    totalsEl.textContent =
+                        `${t.cycles} cycles · ${t.recoveries} recoveries · ` +
+                        `${t.sleeps} sleeps · ${t.workouts} workouts · ${t.strength_sets} strength sets`;
+                    setTimeout(() => location.reload(), 1500);
+                }
+            }
+        };
+        es.onerror = () => {
+            es.close();
+            btn.disabled = false;
+            days.disabled = false;
+            status.textContent = 'Connection lost. Try again.';
+        };
+    });
+})();
+</script>
 {% endif %}
 {% endblock %}

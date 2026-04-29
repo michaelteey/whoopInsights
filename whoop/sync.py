@@ -30,34 +30,65 @@ def _iso(dt: datetime) -> str:
 
 def sync_user(conn: sqlite3.Connection, user_id: int, client: WhoopClient,
               lookback_days: int = 30) -> dict:
-    """Pull recent data for one user. Newest-first, chunked, fault-tolerant."""
+    """Non-streaming wrapper. Drains the iterator and returns final totals."""
+    totals = {}
+    for event in sync_user_iter(conn, user_id, client, lookback_days):
+        if event["event"] == "complete":
+            totals = event["totals"]
+    return totals
+
+
+def sync_user_iter(conn: sqlite3.Connection, user_id: int, client: WhoopClient,
+                   lookback_days: int = 30):
+    """Generator version: yields progress events as each chunk completes.
+
+    Each yielded dict has an 'event' key:
+      - 'start'        — begins, includes total_chunks
+      - 'chunk_done'   — one chunk finished cleanly, includes running totals
+      - 'chunk_failed' — chunk errored, others continue
+      - 'complete'     — all chunks attempted, final totals included
+
+    Newest-first chunked sync — same fault-tolerance as before, just
+    observable in real time.
+    """
     now = datetime.now(timezone.utc)
     totals = {"cycles": 0, "recoveries": 0, "sleeps": 0, "workouts": 0,
               "strength_sets": 0, "chunks_ok": 0, "chunks_failed": 0,
               "errors": []}
 
-    chunks_done = 0
     total_chunks = max(1, (lookback_days + CHUNK_DAYS - 1) // CHUNK_DAYS)
+    yield {"event": "start", "lookback_days": lookback_days,
+           "total_chunks": total_chunks}
 
+    chunk_index = 0
     for chunk_end_offset in range(0, lookback_days, CHUNK_DAYS):
+        chunk_index += 1
         chunk_end = now - timedelta(days=chunk_end_offset)
         chunk_start = chunk_end - timedelta(days=CHUNK_DAYS)
         s, e = _iso(chunk_start), _iso(chunk_end)
+        label = f"{chunk_start.date()}..{chunk_end.date()}"
         try:
             chunk_counts = _sync_chunk(conn, user_id, client, s, e)
             for k, v in chunk_counts.items():
                 totals[k] = totals.get(k, 0) + v
             conn.commit()
             totals["chunks_ok"] += 1
+            yield {"event": "chunk_done", "chunk": chunk_index,
+                   "total_chunks": total_chunks, "label": label,
+                   "chunk_counts": chunk_counts,
+                   "totals": _public_totals(totals)}
         except Exception as exc:
-            log.exception("Sync chunk %s..%s failed", s, e)
+            log.exception("Sync chunk %s failed", label)
             totals["chunks_failed"] += 1
-            totals["errors"].append(f"{chunk_start.date()}..{chunk_end.date()}: {exc}")
+            totals["errors"].append(f"{label}: {exc}")
             try:
                 conn.rollback()
             except Exception:
                 pass
-        chunks_done += 1
+            yield {"event": "chunk_failed", "chunk": chunk_index,
+                   "total_chunks": total_chunks, "label": label,
+                   "error": str(exc),
+                   "totals": _public_totals(totals)}
 
     try:
         conn.execute(
@@ -68,7 +99,12 @@ def sync_user(conn: sqlite3.Connection, user_id: int, client: WhoopClient,
     except Exception:
         log.exception("Failed to update last_synced_at")
 
-    return totals
+    yield {"event": "complete", "totals": totals}
+
+
+def _public_totals(totals: dict) -> dict:
+    """Strip internal fields like the errors list for the streaming UI."""
+    return {k: v for k, v in totals.items() if k != "errors"}
 
 
 def _sync_chunk(conn, user_id, client, start, end) -> dict:

@@ -5,7 +5,7 @@ from flask import Flask
 
 from config import Config
 from db import close_db, init_db
-from routes import auth, dashboard, strength
+from routes import auth, dashboard, strength, workouts
 
 
 SERVER_BOOT_AT = datetime.now(timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ")
@@ -27,6 +27,7 @@ def create_app() -> Flask:
     app.register_blueprint(dashboard.bp)
     app.register_blueprint(auth.bp)
     app.register_blueprint(strength.bp)
+    app.register_blueprint(workouts.bp)
 
     @app.context_processor
     def inject_build_info():

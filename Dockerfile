@@ -26,4 +26,7 @@ ENV DATABASE_PATH=/data/whoop.db \
 
 EXPOSE 8080
 
-CMD ["gunicorn", "--bind", "0.0.0.0:8080", "--workers", "2", "--timeout", "60", "app:app"]
+# --threads + longer timeout so SSE streaming sync can stay open up to 5
+# minutes per chunk without gunicorn killing the worker.
+CMD ["gunicorn", "--bind", "0.0.0.0:8080", "--workers", "2", "--threads", "4", \
+     "--timeout", "300", "--worker-class", "gthread", "app:app"]

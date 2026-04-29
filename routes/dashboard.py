@@ -1,11 +1,14 @@
-from flask import Blueprint, render_template, session, redirect, url_for, flash, request
+import json
+
+from flask import (Blueprint, Response, render_template, session, redirect,
+                   stream_with_context, url_for, flash, request)
 
 from config import Config
 from db import get_db
 from analytics import trends
 from whoop import oauth
 from whoop.client import WhoopClient
-from whoop.sync import sync_user
+from whoop.sync import sync_user, sync_user_iter
 
 
 bp = Blueprint("dashboard", __name__)
@@ -54,6 +57,51 @@ def trends_view():
     db = get_db()
     series = trends.daily_series(db, user_id, days)
     return render_template("trends.html", series=series, days=days)
+
+
+@bp.route("/sync/stream")
+def sync_stream():
+    """Server-Sent Events: live progress as each chunk completes."""
+    user_id = _current_user_id()
+    if not user_id:
+        return "Sign in first", 401
+
+    db = get_db()
+    tok = db.execute(
+        "SELECT * FROM oauth_tokens WHERE user_id = ?", (user_id,)
+    ).fetchone()
+    if not tok:
+        return "No Whoop token", 400
+
+    days = int(request.args.get("days", 30))
+
+    def persist(new_token):
+        db.execute(
+            """UPDATE oauth_tokens
+               SET access_token = ?, refresh_token = ?, expires_at = ?, scope = ?
+               WHERE user_id = ?""",
+            (new_token["access_token"],
+             new_token["refresh_token"] or tok["refresh_token"],
+             new_token["expires_at"],
+             new_token.get("scope") or tok["scope"], user_id),
+        )
+        db.commit()
+
+    client = WhoopClient(
+        tok["access_token"], tok["refresh_token"], tok["expires_at"],
+        on_token_refresh=persist,
+    )
+
+    @stream_with_context
+    def events():
+        try:
+            for ev in sync_user_iter(db, user_id, client, lookback_days=days):
+                yield f"data: {json.dumps(ev)}\n\n"
+        except Exception as exc:
+            yield f"data: {json.dumps({'event': 'fatal', 'error': str(exc)})}\n\n"
+
+    return Response(events(), mimetype="text/event-stream",
+                    headers={"X-Accel-Buffering": "no", "Cache-Control": "no-cache"})
 
 
 @bp.route("/sync", methods=["POST"])
