@@ -95,54 +95,85 @@ def sessions_for_sport(conn: sqlite3.Connection, user_id: int,
     return [dict(r) for r in rows]
 
 
-def weekly_stacked_by_sport(conn: sqlite3.Connection, user_id: int,
-                            weeks: int = 52,
-                            top_n: int = 8) -> dict:
-    """Returns Chart.js-ready data for a stacked bar of weekly counts.
+def overall_time_summary(conn: sqlite3.Connection, user_id: int) -> dict:
+    """Aggregate time stats across every sport: total minutes, total
+    sessions, average session length."""
+    row = conn.execute(
+        """
+        SELECT COUNT(*) AS sessions,
+               SUM((julianday(end_at) - julianday(start_at)) * 24 * 60) AS total_minutes,
+               AVG((julianday(end_at) - julianday(start_at)) * 24 * 60) AS avg_minutes
+        FROM workouts
+        WHERE user_id = ?
+        """,
+        (user_id,),
+    ).fetchone()
+    sessions = row["sessions"] or 0
+    total_minutes = round(row["total_minutes"] or 0)
+    return {
+        "sessions": sessions,
+        "total_minutes": total_minutes,
+        "total_hours": round(total_minutes / 60, 1),
+        "avg_minutes": round(row["avg_minutes"]) if row["avg_minutes"] else 0,
+    }
 
-    Keeps the top_n most-frequent sports as their own datasets and rolls
-    everything else into 'Other' so the chart legend stays readable.
+
+_BUCKET_FORMATS = {
+    "day":   "%Y-%m-%d",
+    "week":  "%Y-%W",
+    "month": "%Y-%m",
+}
+
+
+def stacked_by_sport(conn: sqlite3.Connection, user_id: int,
+                     bucket: str = "week",
+                     days: int = 365,
+                     top_n: int = 8) -> dict:
+    """Stacked-by-sport count series for a given bucket size.
+
+    bucket ∈ {'day', 'week', 'month'}. days = lookback window.
+    Keeps the top_n most-frequent sports + 'other' so the legend stays sane.
 
     Output shape:
         {
             "labels": ["2025-44", "2025-45", ...],
             "datasets": [
-                {"label": "Strength Trainer", "data": [3, 2, 0, ...]},
-                {"label": "Running", "data": [...]},
+                {"label": "weightlifting_msk", "data": [3, 2, 0, ...]},
                 ...
             ]
         }
     """
+    fmt = _BUCKET_FORMATS.get(bucket, _BUCKET_FORMATS["week"])
     rows = conn.execute(
-        """
-        SELECT strftime('%Y-%W', start_at) AS yw,
+        f"""
+        SELECT strftime('{fmt}', start_at) AS bucket,
                sport_name,
                COUNT(*) AS n
         FROM workouts
         WHERE user_id = ? AND start_at >= date('now', ?)
-        GROUP BY yw, sport_name
-        ORDER BY yw ASC
+        GROUP BY bucket, sport_name
+        ORDER BY bucket ASC
         """,
-        (user_id, f"-{weeks * 7} days"),
+        (user_id, f"-{days} days"),
     ).fetchall()
 
     if not rows:
         return {"labels": [], "datasets": []}
 
-    weeks_set: list[str] = []
-    seen_weeks = set()
+    buckets_seen: list[str] = []
+    in_set: set[str] = set()
     sport_totals: dict[str, int] = {}
     cells: dict[tuple[str, str], int] = {}
 
     for r in rows:
-        yw = r["yw"]
+        b = r["bucket"]
         sport = r["sport_name"] or "(unknown)"
         n = r["n"]
-        if yw not in seen_weeks:
-            seen_weeks.add(yw)
-            weeks_set.append(yw)
+        if b not in in_set:
+            in_set.add(b)
+            buckets_seen.append(b)
         sport_totals[sport] = sport_totals.get(sport, 0) + n
-        cells[(yw, sport)] = n
+        cells[(b, sport)] = n
 
     sorted_sports = sorted(sport_totals.items(), key=lambda kv: -kv[1])
     top_sports = [s for s, _ in sorted_sports[:top_n]]
@@ -152,17 +183,22 @@ def weekly_stacked_by_sport(conn: sqlite3.Connection, user_id: int,
     for sport in top_sports:
         datasets.append({
             "label": sport,
-            "data": [cells.get((yw, sport), 0) for yw in weeks_set],
+            "data": [cells.get((b, sport), 0) for b in buckets_seen],
         })
     if other_sports:
         datasets.append({
-            "label": "Other",
+            "label": "other",
             "data": [
-                sum(cells.get((yw, s), 0) for s in other_sports)
-                for yw in weeks_set
+                sum(cells.get((b, s), 0) for s in other_sports)
+                for b in buckets_seen
             ],
         })
-    return {"labels": weeks_set, "datasets": datasets}
+    return {"labels": buckets_seen, "datasets": datasets}
+
+
+# Back-compat alias for old name. Routes will move to stacked_by_sport.
+def weekly_stacked_by_sport(conn, user_id, weeks=52, top_n=8):
+    return stacked_by_sport(conn, user_id, bucket="week", days=weeks * 7, top_n=top_n)
 
 
 def weekly_session_counts(conn: sqlite3.Connection, user_id: int,

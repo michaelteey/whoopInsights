@@ -10,12 +10,21 @@
     <article><p>no workouts synced yet. run a sync from the overview.</p></article>
 {% else %}
 
-{% set total_sessions = sports|sum(attribute='session_count') %}
 <section class="grid stat-grid">
     <article>
         <h3>total sessions</h3>
-        <p class="stat n-mint">{{ total_sessions }}</p>
+        <p class="stat n-mint">{{ time_summary.sessions }}</p>
         <small>across {{ sports|length }} sports</small>
+    </article>
+    <article>
+        <h3>total time</h3>
+        <p class="stat n-blue">{{ time_summary.total_hours }} <small style="font-size: 0.9rem; color: var(--muted);">hr</small></p>
+        <small>{{ '{:,}'.format(time_summary.total_minutes) }} min</small>
+    </article>
+    <article>
+        <h3>avg session</h3>
+        <p class="stat n-yellow">{{ time_summary.avg_minutes }} <small style="font-size: 0.9rem; color: var(--muted);">min</small></p>
+        <small>across all workouts</small>
     </article>
     <article>
         <h3>most recent</h3>
@@ -25,8 +34,15 @@
 </section>
 
 <article>
-    <h3>sessions per week, stacked by sport</h3>
-    <div id="weekly_stacked" class="chart-wrap"></div>
+    <div class="head" style="margin-bottom: 1rem;">
+        <h3 style="margin: 0;">sessions stacked by sport</h3>
+        <nav class="range" id="bucket-toggle">
+            <a href="#" data-bucket="day">day</a>
+            <a href="#" data-bucket="week" class="on">week</a>
+            <a href="#" data-bucket="month">month</a>
+        </nav>
+    </div>
+    <div id="stacked_chart" class="chart-wrap"></div>
 </article>
 
 {% if kcal %}
@@ -79,10 +95,30 @@
 
 {% block scripts %}
 <script>
-    const stacked = {{ stacked|tojson }};
-    if (stacked && stacked.datasets) {
-        renderStackedBar('weekly_stacked', stacked, FRIENDLY_SPORT);
+    const STACKED = {
+        day:   {{ stacked_day|tojson }},
+        week:  {{ stacked_week|tojson }},
+        month: {{ stacked_month|tojson }},
+    };
+
+    function renderStacked(bucket) {
+        const target = document.getElementById('stacked_chart');
+        target.innerHTML = '';
+        const payload = STACKED[bucket];
+        if (payload && payload.datasets && payload.datasets.length) {
+            renderStackedBar('stacked_chart', payload, FRIENDLY_SPORT);
+        }
     }
+    renderStacked('week');
+
+    document.querySelectorAll('#bucket-toggle a').forEach(a => {
+        a.addEventListener('click', (e) => {
+            e.preventDefault();
+            document.querySelectorAll('#bucket-toggle a').forEach(x => x.classList.remove('on'));
+            a.classList.add('on');
+            renderStacked(a.dataset.bucket);
+        });
+    });
 
     const kcalAvg   = {{ kcal_avg|tojson }};
     const kcalTotal = {{ kcal_total|tojson }};

@@ -27,16 +27,20 @@ def index():
         flash("Sign in with Whoop first.", "error")
         return redirect(url_for("dashboard.index"))
     db = get_db()
-    sports     = analytics.workout_summary_by_sport(db, user_id)
-    weekly_all = analytics.weekly_session_counts(db, user_id, sport_name=None, weeks=52)
-    stacked    = analytics.weekly_stacked_by_sport(db, user_id, weeks=52, top_n=8)
-    kcal_avg   = analytics.calories_by_sport(db, user_id, top_n=12, by="avg")
-    kcal_total = analytics.calories_by_sport(db, user_id, top_n=12, by="total")
+    sports        = analytics.workout_summary_by_sport(db, user_id)
+    time_summary  = analytics.overall_time_summary(db, user_id)
+    stacked_day   = analytics.stacked_by_sport(db, user_id, bucket="day",   days=180, top_n=8)
+    stacked_week  = analytics.stacked_by_sport(db, user_id, bucket="week",  days=365, top_n=8)
+    stacked_month = analytics.stacked_by_sport(db, user_id, bucket="month", days=365 * 3, top_n=8)
+    kcal_avg      = analytics.calories_by_sport(db, user_id, top_n=12, by="avg")
+    kcal_total    = analytics.calories_by_sport(db, user_id, top_n=12, by="total")
     return render_template("workouts_index.html",
                            sports=sports,
-                           weekly_all=weekly_all,
-                           stacked=stacked,
-                           kcal=kcal_avg,        # legacy var, kept for safety
+                           time_summary=time_summary,
+                           stacked_day=stacked_day,
+                           stacked_week=stacked_week,
+                           stacked_month=stacked_month,
+                           kcal=kcal_avg,
                            kcal_avg=kcal_avg,
                            kcal_total=kcal_total)
 
