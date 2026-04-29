@@ -19,6 +19,7 @@
     <nav>
         <a href="{{ url_for('dashboard.index') }}">overview</a>
         <a href="{{ url_for('workouts.index') }}">workouts</a>
+        <a href="{{ url_for('sleep.index') }}">sleep</a>
         <a href="{{ url_for('dashboard.trends_view') }}">trends</a>
         <a href="{{ url_for('strength.index') }}">strength</a>
         {% if session.get('user_id') %}

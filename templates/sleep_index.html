@@ -1,0 +1,174 @@
+{% extends "base.html" %}
+{% block title %}sleep · whoopInsights.{% endblock %}
+{% block content %}
+<section class="head">
+    <h1>sleep<span class="brand-dot">.</span></h1>
+    <p class="lede">the nightly numbers whoop has but doesn't show: rolling debt, stage trends, disturbances, weekday vs weekend, and bedtime consistency.</p>
+</section>
+
+<section class="grid stat-grid">
+    <article>
+        <h3>last 7d avg</h3>
+        <p class="stat n-mint">{{ overview.asleep_avg_7d if overview.asleep_avg_7d is not none else '—' }} <small style="font-size:0.9rem;color:var(--muted);">hr</small></p>
+        <small>nights asleep</small>
+    </article>
+    <article>
+        <h3>last 30d avg</h3>
+        <p class="stat">{{ overview.asleep_avg_30d if overview.asleep_avg_30d is not none else '—' }} <small style="font-size:0.9rem;color:var(--muted);">hr</small></p>
+        <small>baseline {{ '%.0f'|format(8) }} hr target</small>
+    </article>
+    <article>
+        <h3>14d sleep debt</h3>
+        <p class="stat {% if overview.sleep_debt_14d_hours and overview.sleep_debt_14d_hours > 0 %}n-yellow{% else %}n-mint{% endif %}">
+            {% if overview.sleep_debt_14d_hours is not none %}
+                {% if overview.sleep_debt_14d_hours > 0 %}+{% endif %}{{ overview.sleep_debt_14d_hours }}
+            {% else %}—{% endif %}
+            <small style="font-size:0.9rem;color:var(--muted);">hr</small>
+        </p>
+        <small>vs 8 hr/night baseline</small>
+    </article>
+    <article>
+        <h3>efficiency 30d</h3>
+        <p class="stat n-blue">{{ overview.efficiency_30d if overview.efficiency_30d is not none else '—' }}<small style="font-size:0.9rem;color:var(--muted);">%</small></p>
+        <small>asleep / in bed</small>
+    </article>
+    <article>
+        <h3>bedtime σ</h3>
+        <p class="stat">{{ overview.bedtime_stddev_min if overview.bedtime_stddev_min is not none else '—' }} <small style="font-size:0.9rem;color:var(--muted);">min</small></p>
+        <small>stddev, last 14 nights</small>
+    </article>
+    <article>
+        <h3>midpoint σ</h3>
+        <p class="stat">{{ overview.midpoint_stddev_min if overview.midpoint_stddev_min is not none else '—' }} <small style="font-size:0.9rem;color:var(--muted);">min</small></p>
+        <small>chronotype drift</small>
+    </article>
+</section>
+
+<article>
+    <h3>sleep debt — rolling</h3>
+    <p class="muted" style="font-size:0.78rem; margin-bottom:0.75rem;">cumulative under-sleep against an 8 hr/night baseline. positive = in debt.</p>
+    <div id="debt_chart" class="chart-wrap"></div>
+</article>
+
+<article>
+    <div class="head" style="margin-bottom: 1rem;">
+        <h3 style="margin: 0;">stage breakdown — avg hours / night</h3>
+        <nav class="range" id="stage-toggle">
+            <a href="#" data-bucket="day">day</a>
+            <a href="#" data-bucket="week" class="on">week</a>
+            <a href="#" data-bucket="month">month</a>
+        </nav>
+    </div>
+    <div id="stage_chart" class="chart-wrap"></div>
+</article>
+
+<article>
+    <h3>disturbance density — awake min per asleep hour</h3>
+    <div id="disturbances" class="chart-wrap"></div>
+</article>
+
+<article>
+    <h3>weekday vs weekend</h3>
+    <table>
+        <thead>
+            <tr><th>group</th><th>nights</th><th>avg sleep</th><th>avg bedtime</th><th>avg wake</th></tr>
+        </thead>
+        <tbody>
+            <tr>
+                <td>weekday (Mon–Thu)</td>
+                <td>{{ wd_we.weekday.n }}</td>
+                <td class="n-mint">{{ wd_we.weekday.asleep_hours_mean if wd_we.weekday.asleep_hours_mean is not none else '—' }} hr</td>
+                <td>{{ wd_we.weekday.bedtime_mean or '—' }}</td>
+                <td>{{ wd_we.weekday.wake_mean or '—' }}</td>
+            </tr>
+            <tr>
+                <td>weekend (Fri–Sun)</td>
+                <td>{{ wd_we.weekend.n }}</td>
+                <td class="n-mint">{{ wd_we.weekend.asleep_hours_mean if wd_we.weekend.asleep_hours_mean is not none else '—' }} hr</td>
+                <td>{{ wd_we.weekend.bedtime_mean or '—' }}</td>
+                <td>{{ wd_we.weekend.wake_mean or '—' }}</td>
+            </tr>
+        </tbody>
+    </table>
+    <p class="muted" style="font-size:0.78rem; margin-top: 0.75rem;">large gaps between weekday and weekend midpoints = "social jet lag" — a consistent 1+ hour shift correlates with worse mood, metabolic markers, and recovery in the literature.</p>
+</article>
+{% endblock %}
+
+{% block scripts %}
+<script>
+    /* Sleep debt — dual-line chart (actual hours + cumulative debt) */
+    const debt = {{ debt_curve|tojson }};
+    if (debt && debt.length) {
+        new ApexCharts(document.getElementById('debt_chart'), {
+            ...baseChartOptions(),
+            chart: { ...baseChartOptions().chart, type: 'line', height: 320 },
+            series: [
+                { name: 'asleep hours', data: debt.map(d => d.actual), type: 'column' },
+                { name: 'cumulative debt (hr)', data: debt.map(d => d.cumulative), type: 'line' },
+            ],
+            xaxis: {
+                categories: debt.map(d => d.night),
+                labels: { style: { colors: '#6b7177', fontFamily: "'JetBrains Mono', monospace", fontSize: '10px' }, hideOverlappingLabels: true },
+                axisBorder: { show: false }, axisTicks: { show: false },
+            },
+            yaxis: [
+                { title: { text: 'hr asleep', style: { color: '#6b7177' } }, labels: { style: { colors: '#6b7177' } } },
+                { opposite: true, title: { text: 'cumulative debt (hr)', style: { color: '#6b7177' } }, labels: { style: { colors: '#6b7177' } } },
+            ],
+            colors: ['#6f9eff', '#f5d76a'],
+            stroke: { width: [0, 2], curve: 'smooth' },
+            plotOptions: { bar: { columnWidth: '60%', borderRadius: 0 } },
+            legend: { position: 'bottom', labels: { colors: '#6b7177' } },
+            annotations: {
+                yaxis: [{ y: 8, borderColor: '#3ee6ad', strokeDashArray: 4, label: { text: '8h baseline', style: { color: '#3ee6ad', background: 'transparent' } } }],
+            },
+        }).render();
+    }
+
+    /* Stage stacked area with day/week/month toggle */
+    const STAGE = {
+        day:   {{ stage_day|tojson }},
+        week:  {{ stage_week|tojson }},
+        month: {{ stage_month|tojson }},
+    };
+    const STAGE_COLORS = ['#3ee6ad', '#9d8cf2', '#6f9eff', '#6b7177'];
+
+    function renderStage(bucket) {
+        const target = document.getElementById('stage_chart');
+        target.innerHTML = '';
+        const payload = STAGE[bucket];
+        if (!payload || !payload.datasets || !payload.datasets.length) return;
+        new ApexCharts(target, {
+            ...baseChartOptions(),
+            chart: { ...baseChartOptions().chart, type: 'bar', stacked: true, height: 340 },
+            series: payload.datasets,
+            xaxis: {
+                categories: payload.labels,
+                labels: { style: { colors: '#6b7177', fontFamily: "'JetBrains Mono', monospace", fontSize: '10px' }, hideOverlappingLabels: true },
+                axisBorder: { show: false }, axisTicks: { show: false },
+            },
+            yaxis: { labels: { style: { colors: '#6b7177' }, formatter: v => v?.toFixed(1) }, title: { text: 'hours', style: { color: '#6b7177' } } },
+            colors: STAGE_COLORS,
+            plotOptions: { bar: { columnWidth: '60%', borderRadius: 0 } },
+            stroke: { show: false, width: 0 },
+            legend: { position: 'bottom', labels: { colors: '#6b7177' } },
+        }).render();
+    }
+    renderStage('week');
+
+    document.querySelectorAll('#stage-toggle a').forEach(a => {
+        a.addEventListener('click', e => {
+            e.preventDefault();
+            document.querySelectorAll('#stage-toggle a').forEach(x => x.classList.remove('on'));
+            a.classList.add('on');
+            renderStage(a.dataset.bucket);
+        });
+    });
+
+    /* Disturbance density line */
+    const dist = {{ disturbances|tojson }};
+    if (dist && dist.length) {
+        renderLine('disturbances', dist, { color: '#ee7aa1', label: 'awake min / asleep hr' });
+    }
+</script>
+{% endblock %}
