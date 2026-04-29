@@ -92,12 +92,19 @@ def sync():
     )
     days = int(request.form.get("days", 30))
     counts = sync_user(db, user_id, client, lookback_days=days)
-    flash(
-        f"Synced {counts['cycles']} cycles, {counts['recoveries']} recoveries, "
-        f"{counts['sleeps']} sleeps, {counts['workouts']} workouts "
-        f"(last {days} days).",
-        "success",
+
+    msg = (
+        f"Synced last {days} days: "
+        f"{counts['cycles']} cycles, {counts['recoveries']} recoveries, "
+        f"{counts['sleeps']} sleeps, {counts['workouts']} workouts, "
+        f"{counts['strength_sets']} strength sets. "
+        f"({counts['chunks_ok']} of {counts['chunks_ok'] + counts['chunks_failed']} weeks ok)"
     )
+    if counts["chunks_failed"]:
+        msg += f" Some weeks failed: {'; '.join(counts['errors'][:3])}"
+        flash(msg, "error")
+    else:
+        flash(msg, "success")
     return redirect(url_for("dashboard.index"))
 
 

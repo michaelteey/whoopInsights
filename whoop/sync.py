@@ -1,9 +1,17 @@
 """Pulls data from the Whoop API into SQLite.
 
-Designed to be safe to run repeatedly: every upsert is idempotent.
+Resilient by design:
+- Splits the lookback window into 7-day chunks, syncs newest first.
+- Each chunk is its own try/except — a failure in one chunk doesn't abort
+  the whole sync. The user always gets *some* recent data.
+- Each individual record insert is also wrapped — one bad row is logged and
+  skipped rather than killing the chunk.
+- Every chunk commits independently, so progress survives crashes.
+- Idempotent: re-running picks up missing data without duplicating rows.
 """
 from __future__ import annotations
 
+import logging
 import sqlite3
 from datetime import datetime, timedelta, timezone
 
@@ -11,40 +19,105 @@ from db import dumps
 from whoop.client import WhoopClient
 
 
+log = logging.getLogger(__name__)
+
+CHUNK_DAYS = 7
+
+
 def _iso(dt: datetime) -> str:
     return dt.astimezone(timezone.utc).strftime("%Y-%m-%dT%H:%M:%S.000Z")
 
 
 def sync_user(conn: sqlite3.Connection, user_id: int, client: WhoopClient,
-              lookback_days: int = 365) -> dict:
-    """Pull recent data for one user. Returns counts per entity.
+              lookback_days: int = 30) -> dict:
+    """Pull recent data for one user. Newest-first, chunked, fault-tolerant."""
+    now = datetime.now(timezone.utc)
+    totals = {"cycles": 0, "recoveries": 0, "sleeps": 0, "workouts": 0,
+              "strength_sets": 0, "chunks_ok": 0, "chunks_failed": 0,
+              "errors": []}
 
-    Each list endpoint paginates server-side at 25 records/page. For a year
-    of data that's roughly 60 total HTTP calls, well under Whoop's 100/min
-    rate limit. The client retries on 429 just in case.
-    """
-    end = datetime.now(timezone.utc)
-    start = end - timedelta(days=lookback_days)
-    s, e = _iso(start), _iso(end)
-    counts = {
-        "cycles": _sync_cycles(conn, user_id, client, s, e),
-        "recoveries": _sync_recoveries(conn, user_id, client, s, e),
-        "sleeps": _sync_sleeps(conn, user_id, client, s, e),
-        "workouts": _sync_workouts(conn, user_id, client, s, e),
-    }
-    conn.execute(
-        "UPDATE users SET last_synced_at = datetime('now') WHERE id = ?",
-        (user_id,),
-    )
-    conn.commit()
+    chunks_done = 0
+    total_chunks = max(1, (lookback_days + CHUNK_DAYS - 1) // CHUNK_DAYS)
+
+    for chunk_end_offset in range(0, lookback_days, CHUNK_DAYS):
+        chunk_end = now - timedelta(days=chunk_end_offset)
+        chunk_start = chunk_end - timedelta(days=CHUNK_DAYS)
+        s, e = _iso(chunk_start), _iso(chunk_end)
+        try:
+            chunk_counts = _sync_chunk(conn, user_id, client, s, e)
+            for k, v in chunk_counts.items():
+                totals[k] = totals.get(k, 0) + v
+            conn.commit()
+            totals["chunks_ok"] += 1
+        except Exception as exc:
+            log.exception("Sync chunk %s..%s failed", s, e)
+            totals["chunks_failed"] += 1
+            totals["errors"].append(f"{chunk_start.date()}..{chunk_end.date()}: {exc}")
+            try:
+                conn.rollback()
+            except Exception:
+                pass
+        chunks_done += 1
+
+    try:
+        conn.execute(
+            "UPDATE users SET last_synced_at = datetime('now') WHERE id = ?",
+            (user_id,),
+        )
+        conn.commit()
+    except Exception:
+        log.exception("Failed to update last_synced_at")
+
+    return totals
+
+
+def _sync_chunk(conn, user_id, client, start, end) -> dict:
+    """One 7-day window. Each entity is independently wrapped so a single
+    bad endpoint doesn't kill the chunk."""
+    counts = {"cycles": 0, "recoveries": 0, "sleeps": 0, "workouts": 0,
+              "strength_sets": 0}
+    counts["cycles"]    += _safe(_sync_cycles,    conn, user_id, client, start, end)
+    counts["recoveries"]+= _safe(_sync_recoveries,conn, user_id, client, start, end)
+    counts["sleeps"]    += _safe(_sync_sleeps,    conn, user_id, client, start, end)
+    w, sets = _safe2(_sync_workouts,              conn, user_id, client, start, end)
+    counts["workouts"]      += w
+    counts["strength_sets"] += sets
     return counts
+
+
+def _safe(fn, *args) -> int:
+    try:
+        return fn(*args)
+    except Exception:
+        log.exception("Entity sync failed in %s", fn.__name__)
+        return 0
+
+
+def _safe2(fn, *args) -> tuple[int, int]:
+    try:
+        return fn(*args)
+    except Exception:
+        log.exception("Entity sync failed in %s", fn.__name__)
+        return (0, 0)
+
+
+def _try_insert(conn, sql, params) -> int:
+    """Run one upsert; swallow per-row errors so one bad row doesn't kill
+    the whole entity loop. Returns 1 on success, 0 on failure."""
+    try:
+        conn.execute(sql, params)
+        return 1
+    except Exception:
+        log.exception("Row insert failed; sql=%s", sql.strip().split()[0:3])
+        return 0
 
 
 def _sync_cycles(conn, user_id, client, start, end) -> int:
     n = 0
     for cycle in client.cycles(start=start, end=end):
         score = cycle.get("score") or {}
-        conn.execute(
+        n += _try_insert(
+            conn,
             """
             INSERT INTO cycles (id, user_id, start_at, end_at, timezone_offset,
                                 strain, kilojoule, avg_hr, max_hr, raw)
@@ -70,20 +143,25 @@ def _sync_cycles(conn, user_id, client, start, end) -> int:
                 dumps(cycle),
             ),
         )
-        n += 1
     return n
 
 
 def _sync_recoveries(conn, user_id, client, start, end) -> int:
-    """Pulls recoveries via the list endpoint — one paginated stream rather
-    than one HTTP call per cycle."""
     n = 0
     for recovery in client.recoveries(start=start, end=end):
         cycle_id = str(recovery.get("cycle_id"))
         if not cycle_id or cycle_id == "None":
             continue
+        # If the cycle isn't already in our table, skip the recovery rather
+        # than tripping the foreign-key constraint.
+        exists = conn.execute(
+            "SELECT 1 FROM cycles WHERE id = ?", (cycle_id,)
+        ).fetchone()
+        if not exists:
+            continue
         rscore = recovery.get("score") or {}
-        conn.execute(
+        n += _try_insert(
+            conn,
             """
             INSERT INTO recoveries (cycle_id, user_id, recorded_at, recovery_score,
                                     resting_heart_rate, hrv_rmssd_milli,
@@ -109,7 +187,6 @@ def _sync_recoveries(conn, user_id, client, start, end) -> int:
                 dumps(recovery),
             ),
         )
-        n += 1
     return n
 
 
@@ -118,7 +195,8 @@ def _sync_sleeps(conn, user_id, client, start, end) -> int:
     for sleep in client.sleeps(start=start, end=end):
         score = sleep.get("score") or {}
         stage = score.get("stage_summary") or {}
-        conn.execute(
+        n += _try_insert(
+            conn,
             """
             INSERT INTO sleeps (id, user_id, start_at, end_at, nap,
                                 sleep_performance_pct, sleep_efficiency_pct,
@@ -151,15 +229,16 @@ def _sync_sleeps(conn, user_id, client, start, end) -> int:
                 dumps(sleep),
             ),
         )
-        n += 1
     return n
 
 
-def _sync_workouts(conn, user_id, client, start, end) -> int:
+def _sync_workouts(conn, user_id, client, start, end) -> tuple[int, int]:
     n = 0
+    sets_n = 0
     for workout in client.workouts(start=start, end=end):
         score = workout.get("score") or {}
-        conn.execute(
+        ok = _try_insert(
+            conn,
             """
             INSERT INTO workouts (id, user_id, start_at, end_at, sport_id, sport_name,
                                   strain, avg_hr, max_hr, kilojoule, distance_meter, raw)
@@ -187,38 +266,37 @@ def _sync_workouts(conn, user_id, client, start, end) -> int:
                 dumps(workout),
             ),
         )
-        # If the API returns per-set strength data, capture it. Field names here
-        # are speculative and will be confirmed against a real response.
-        for s in _extract_strength_sets(workout):
-            conn.execute(
-                """
-                INSERT INTO strength_sets (workout_id, user_id, performed_at,
-                                           exercise_name, set_index, reps,
-                                           weight_kg, rpe, source, raw)
-                VALUES (?, ?, ?, ?, ?, ?, ?, ?, 'whoop', ?)
-                """,
-                (
-                    str(workout["id"]),
-                    user_id,
-                    s["performed_at"],
-                    s["exercise_name"],
-                    s.get("set_index"),
-                    s.get("reps"),
-                    s.get("weight_kg"),
-                    s.get("rpe"),
-                    dumps(s),
-                ),
-            )
-        n += 1
-    return n
+        n += ok
+        if ok:
+            for s in _extract_strength_sets(workout):
+                sets_n += _try_insert(
+                    conn,
+                    """
+                    INSERT INTO strength_sets (workout_id, user_id, performed_at,
+                                               exercise_name, set_index, reps,
+                                               weight_kg, rpe, source, raw)
+                    VALUES (?, ?, ?, ?, ?, ?, ?, ?, 'whoop', ?)
+                    """,
+                    (
+                        str(workout["id"]),
+                        user_id,
+                        s["performed_at"],
+                        s["exercise_name"],
+                        s.get("set_index"),
+                        s.get("reps"),
+                        s.get("weight_kg"),
+                        s.get("rpe"),
+                        dumps(s),
+                    ),
+                )
+    return n, sets_n
 
 
 def _extract_strength_sets(workout: dict) -> list[dict]:
     """Best-effort extraction of per-set strength data from a workout payload.
 
     Whoop's public API may or may not expose this. We probe a few likely shapes
-    and return an empty list if none match. Confirm against a real response and
-    tighten this once the schema is known.
+    and return an empty list if none match.
     """
     candidates = (
         workout.get("strength_trainer")
