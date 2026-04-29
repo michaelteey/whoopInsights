@@ -2,12 +2,29 @@
 {% block title %}Debug · Workouts{% endblock %}
 {% block content %}
 <section class="head">
-    <h1>Workout API debug</h1>
-    <p class="lede">Most-recent 10 workouts as Whoop returned them. If you see <code>strength_trainer</code> / <code>exercises</code> / per-set fields here, the API exposes per-set data and we can extract it. If you only see strain / HR / kilojoule, Whoop's API doesn't expose it (yet) — manual entry is the next step.</p>
+    <h1>Workout API debug{% if active_filter %} · {{ active_filter }}{% endif %}</h1>
 </section>
 
+<p class="lede">Raw JSON of your synced workouts as Whoop returned them. We're looking for fields like <code>exercises</code>, <code>sets</code>, <code>reps</code>, or <code>weight_kg</code> in Strength Trainer responses.</p>
+
+<nav class="range">
+    <a href="?" class="{% if not active_filter %}on{% endif %}">all sports</a>
+    <a href="?sport=strength" class="{% if active_filter == 'strength' %}on{% endif %}">Strength Trainer only</a>
+</nav>
+
+{% if sports_seen %}
+<details>
+    <summary>Sports synced ({{ sports_seen|length }})</summary>
+    <ul>
+        {% for s in sports_seen %}
+            <li><a href="?sport={{ s.sport_name|lower }}">{{ s.sport_name or '(unknown)' }}</a> — {{ s.n }}</li>
+        {% endfor %}
+    </ul>
+</details>
+{% endif %}
+
 {% if not workouts %}
-    <article><p>No workouts synced yet. Run a sync first.</p></article>
+    <article><p>No workouts match{% if active_filter %} the filter "{{ active_filter }}"{% endif %}. {% if not sports_seen %}Run a sync first.{% endif %}</p></article>
 {% endif %}
 
 {% for w in workouts %}

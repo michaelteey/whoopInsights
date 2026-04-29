@@ -112,20 +112,54 @@ def sync():
 def debug_workouts():
     """Inspect the raw JSON Whoop returned for your most recent workouts.
 
-    The single most useful page for answering: does the API actually expose
-    per-set/per-rep/per-exercise strength data, or just workout-level summary?
+    Filters:
+      ?sport=strength  -> Strength Trainer only (sport_id 123 OR matching name)
+      ?sport=<name>    -> any sport_name match (case-insensitive substring)
     """
     user_id = _current_user_id()
     if not user_id:
         return "Sign in first", 401
     db = get_db()
-    rows = db.execute(
-        """SELECT id, sport_id, sport_name, start_at, raw
+
+    sport_filter = (request.args.get("sport") or "").strip().lower()
+    if sport_filter == "strength":
+        rows = db.execute(
+            """SELECT id, sport_id, sport_name, start_at, raw
+               FROM workouts
+               WHERE user_id = ?
+                 AND (sport_id = 123 OR LOWER(sport_name) LIKE '%strength%')
+               ORDER BY start_at DESC LIMIT 10""",
+            (user_id,),
+        ).fetchall()
+    elif sport_filter:
+        rows = db.execute(
+            """SELECT id, sport_id, sport_name, start_at, raw
+               FROM workouts
+               WHERE user_id = ? AND LOWER(sport_name) LIKE ?
+               ORDER BY start_at DESC LIMIT 10""",
+            (user_id, f"%{sport_filter}%"),
+        ).fetchall()
+    else:
+        rows = db.execute(
+            """SELECT id, sport_id, sport_name, start_at, raw
+               FROM workouts WHERE user_id = ?
+               ORDER BY start_at DESC LIMIT 10""",
+            (user_id,),
+        ).fetchall()
+
+    sports_seen = db.execute(
+        """SELECT sport_name, COUNT(*) AS n
            FROM workouts WHERE user_id = ?
-           ORDER BY start_at DESC LIMIT 10""",
+           GROUP BY sport_name ORDER BY n DESC""",
         (user_id,),
     ).fetchall()
-    return render_template("debug_workouts.html", workouts=rows)
+
+    return render_template(
+        "debug_workouts.html",
+        workouts=rows,
+        sports_seen=sports_seen,
+        active_filter=sport_filter,
+    )
 
 
 def _user_summary(db, user_id) -> dict:
