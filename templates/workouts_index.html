@@ -52,6 +52,7 @@
                 <th>last</th>
                 <th>avg duration</th>
                 <th>avg kcal</th>
+                <th>kcal / min</th>
                 <th>total kcal</th>
                 <th>avg strain</th>
             </tr>
@@ -65,6 +66,7 @@
                     <td><time data-utc="{{ s.last_at }}">{{ s.last_at[:10] if s.last_at else '—' }}</time></td>
                     <td>{{ s.avg_minutes }} min</td>
                     <td class="n-yellow">{{ '{:,}'.format(s.avg_kcal) if s.avg_kcal else '—' }}</td>
+                    <td class="n-blue">{{ s.kcal_per_min if s.kcal_per_min else '—' }}</td>
                     <td>{{ '{:,}'.format(s.total_kcal) if s.total_kcal else '—' }}</td>
                     <td>{{ '%.1f' % s.avg_strain if s.avg_strain else '—' }}</td>
                 </tr>

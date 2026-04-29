@@ -38,10 +38,13 @@ def workout_summary_by_sport(conn: sqlite3.Connection, user_id: int) -> list[dic
         d = dict(r)
         kj = d.get("total_kj") or 0
         sessions = d.get("session_count") or 0
-        d["total_kcal"] = round(kj * _KJ_TO_KCAL)
-        d["avg_kcal"] = round((kj * _KJ_TO_KCAL) / sessions) if sessions else 0
+        total_kcal = round(kj * _KJ_TO_KCAL)
+        total_minutes = round(d["total_minutes"]) if d["total_minutes"] else 0
+        d["total_kcal"] = total_kcal
+        d["avg_kcal"] = round(total_kcal / sessions) if sessions else 0
         d["avg_minutes"] = round(d["avg_minutes"]) if d["avg_minutes"] else 0
-        d["total_minutes"] = round(d["total_minutes"]) if d["total_minutes"] else 0
+        d["total_minutes"] = total_minutes
+        d["kcal_per_min"] = round(total_kcal / total_minutes, 1) if total_minutes else 0
         out.append(d)
     return out
 
