@@ -27,15 +27,18 @@ def index():
         flash("Sign in with Whoop first.", "error")
         return redirect(url_for("dashboard.index"))
     db = get_db()
-    sports = analytics.workout_summary_by_sport(db, user_id)
+    sports     = analytics.workout_summary_by_sport(db, user_id)
     weekly_all = analytics.weekly_session_counts(db, user_id, sport_name=None, weeks=52)
-    stacked = analytics.weekly_stacked_by_sport(db, user_id, weeks=52, top_n=8)
-    kcal = analytics.calories_by_sport(db, user_id, top_n=12)
+    stacked    = analytics.weekly_stacked_by_sport(db, user_id, weeks=52, top_n=8)
+    kcal_avg   = analytics.calories_by_sport(db, user_id, top_n=12, by="avg")
+    kcal_total = analytics.calories_by_sport(db, user_id, top_n=12, by="total")
     return render_template("workouts_index.html",
                            sports=sports,
                            weekly_all=weekly_all,
                            stacked=stacked,
-                           kcal=kcal)
+                           kcal=kcal_avg,        # legacy var, kept for safety
+                           kcal_avg=kcal_avg,
+                           kcal_total=kcal_total)
 
 
 @bp.route("/<path:sport_name>")

@@ -47,27 +47,33 @@ def workout_summary_by_sport(conn: sqlite3.Connection, user_id: int) -> list[dic
 
 
 def calories_by_sport(conn: sqlite3.Connection, user_id: int,
-                      top_n: int = 12) -> list[dict]:
-    """Total kcal per sport, sorted descending. Top contributors first."""
+                      top_n: int = 12, by: str = "avg") -> list[dict]:
+    """Calorie contributors per sport.
+
+    by="avg":   sorts by average kcal per session (which sport burns the
+                most per workout — the more useful "burner" view).
+    by="total": sorts by total kcal across the lookback (reflects volume).
+    """
     rows = conn.execute(
         """
         SELECT sport_name, SUM(kilojoule) AS total_kj, COUNT(*) AS sessions
         FROM workouts
         WHERE user_id = ? AND kilojoule IS NOT NULL
         GROUP BY sport_name
-        ORDER BY total_kj DESC
-        LIMIT ?
         """,
-        (user_id, top_n),
+        (user_id,),
     ).fetchall()
-    return [
-        {
-            "sport_name": r["sport_name"],
-            "kcal": round((r["total_kj"] or 0) * _KJ_TO_KCAL),
-            "sessions": r["sessions"],
-        }
-        for r in rows
-    ]
+    out = []
+    for r in rows:
+        kj = r["total_kj"] or 0
+        sessions = r["sessions"] or 1
+        total = round(kj * _KJ_TO_KCAL)
+        avg = round(total / sessions) if sessions else 0
+        out.append({"sport_name": r["sport_name"], "kcal_total": total,
+                    "kcal_avg": avg, "sessions": sessions})
+    key = "kcal_avg" if by == "avg" else "kcal_total"
+    out.sort(key=lambda d: d[key], reverse=True)
+    return out[:top_n]
 
 
 def sessions_for_sport(conn: sqlite3.Connection, user_id: int,

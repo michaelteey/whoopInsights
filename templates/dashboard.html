@@ -1,21 +1,21 @@
 {% extends "base.html" %}
-{% block title %}Overview · Whoop Insights{% endblock %}
+{% block title %}overview · whoopInsights.{% endblock %}
 
 {% block content %}
 {% if not user %}
     <article class="hero">
-        <h1>The Whoop dashboard Whoop didn't build.</h1>
-        <p class="lede">Long-range trends, real strength progression, and the analytics the official app caps at six months.</p>
+        <h1>the whoop dashboard whoop didn't build<span class="brand-dot">.</span></h1>
+        <p class="lede">long-range trends, real workout history, and the analytics the official app caps at six months.</p>
         {% if has_credentials %}
-            <a role="button" href="{{ url_for('auth.login') }}">Connect your Whoop</a>
+            <a role="button" class="primary" href="{{ url_for('auth.login') }}">connect your whoop</a>
         {% else %}
-            <p><strong>Setup needed:</strong> add your Whoop developer credentials to <code>.env</code> to enable login.</p>
-            {% if sample_mode %}<p>Sample data is enabled — explore <a href="{{ url_for('strength.index') }}">Strength</a> or <a href="{{ url_for('dashboard.trends_view') }}">Trends</a>.</p>{% endif %}
+            <p><strong>setup needed:</strong> add your whoop developer credentials to <code>.env</code> to enable login.</p>
+            {% if sample_mode %}<p>sample data is enabled — explore <a href="{{ url_for('workouts.index') }}">workouts</a> or <a href="{{ url_for('dashboard.trends_view') }}">trends</a>.</p>{% endif %}
         {% endif %}
     </article>
 {% else %}
     <section class="head">
-        <h1>Hi {{ user['first_name'] or 'there' }}.</h1>
+        <h1>hi {{ user['first_name']|lower if user['first_name'] else 'there' }}<span class="brand-dot">.</span></h1>
         <div class="sync-form">
             <select id="sync-days">
                 <option value="30">last 30 days</option>
@@ -23,13 +23,13 @@
                 <option value="180">last 6 months</option>
                 <option value="365">last year</option>
             </select>
-            <button id="sync-btn" type="button">Sync now</button>
+            <button id="sync-btn" class="primary" type="button">sync now</button>
         </div>
     </section>
 
     <section id="sync-progress" hidden>
         <article>
-            <p id="sync-status">Starting…</p>
+            <p id="sync-status" class="muted">starting…</p>
             <progress id="sync-bar" value="0" max="1"></progress>
             <small id="sync-totals" class="muted"></small>
         </article>
@@ -37,42 +37,43 @@
 
     <section class="grid stat-grid">
         <article>
-            <h3>Recovery</h3>
-            <p class="stat">{{ summary.recovery.recovery_score|round(0)|int if summary.recovery else '—' }}%</p>
+            <h3>recovery</h3>
+            <p class="stat n-mint">{{ summary.recovery.recovery_score|round(0)|int if summary.recovery else '—' }}%</p>
             <small>{{ summary.recovery.recorded_at[:10] if summary.recovery else 'no data' }}</small>
         </article>
         <article>
-            <h3>HRV</h3>
-            <p class="stat">{{ summary.recovery.hrv_rmssd_milli|round(0)|int if summary.recovery else '—' }} ms</p>
-            <small>RMSSD</small>
+            <h3>hrv</h3>
+            <p class="stat">{{ summary.recovery.hrv_rmssd_milli|round(0)|int if summary.recovery else '—' }} <small style="font-size: 0.9rem; color: var(--muted);">ms</small></p>
+            <small>rmssd</small>
         </article>
         <article>
-            <h3>RHR</h3>
+            <h3>rhr</h3>
             <p class="stat">{{ summary.recovery.resting_heart_rate|round(0)|int if summary.recovery else '—' }}</p>
             <small>bpm</small>
         </article>
         <article>
-            <h3>Strain</h3>
-            <p class="stat">{{ summary.cycle.strain|round(1) if summary.cycle else '—' }}</p>
+            <h3>strain</h3>
+            <p class="stat n-yellow">{{ summary.cycle.strain|round(1) if summary.cycle else '—' }}</p>
             <small>last cycle</small>
         </article>
         <article>
-            <h3>Sleep performance</h3>
-            <p class="stat">{{ summary.sleep.sleep_performance_pct|round(0)|int if summary.sleep else '—' }}%</p>
+            <h3>sleep performance</h3>
+            <p class="stat n-blue">{{ summary.sleep.sleep_performance_pct|round(0)|int if summary.sleep else '—' }}%</p>
             <small>last night</small>
         </article>
         <article>
-            <h3>Workouts</h3>
+            <h3>workouts</h3>
             <p class="stat">{{ summary.workout_count }}</p>
             <small>{{ summary.set_count }} strength sets</small>
         </article>
     </section>
 
     <section>
-        <h2>Where to next</h2>
-        <ul>
-            <li><a href="{{ url_for('strength.index') }}">Strength progression →</a></li>
-            <li><a href="{{ url_for('dashboard.trends_view') }}">Long-range trends →</a></li>
+        <h2>where to next</h2>
+        <ul style="list-style: none; padding: 0;">
+            <li>→ <a href="{{ url_for('workouts.index') }}">workouts over time</a></li>
+            <li>→ <a href="{{ url_for('dashboard.trends_view') }}">long-range trends</a></li>
+            <li>→ <a href="{{ url_for('strength.index') }}">strength progression</a></li>
         </ul>
     </section>
 {% endif %}
@@ -94,21 +95,20 @@
         btn.disabled = true;
         days.disabled = true;
         panel.hidden = false;
-        status.textContent = 'Connecting…';
+        status.textContent = 'connecting…';
         bar.value = 0;
         totalsEl.textContent = '';
 
         const es = new EventSource(`/sync/stream?days=${days.value}`);
-
         es.onmessage = (msg) => {
             const ev = JSON.parse(msg.data);
             if (ev.event === 'start') {
-                status.textContent = `Syncing last ${ev.lookback_days} days · 0 / ${ev.total_chunks} weeks`;
+                status.textContent = `syncing last ${ev.lookback_days} days · 0 / ${ev.total_chunks} weeks`;
                 bar.max = ev.total_chunks;
             } else if (ev.event === 'chunk_done' || ev.event === 'chunk_failed') {
                 bar.value = ev.chunk;
                 const verb = ev.event === 'chunk_failed' ? 'failed' : 'done';
-                status.textContent = `Week ${ev.chunk} / ${ev.total_chunks} · ${ev.label} · ${verb}`;
+                status.textContent = `week ${ev.chunk} / ${ev.total_chunks} · ${ev.label} · ${verb}`;
                 const t = ev.totals;
                 totalsEl.textContent =
                     `${t.cycles} cycles · ${t.recoveries} recoveries · ` +
@@ -118,10 +118,10 @@
                 btn.disabled = false;
                 days.disabled = false;
                 if (ev.event === 'fatal') {
-                    status.textContent = `Failed: ${ev.error}`;
+                    status.textContent = `failed: ${ev.error}`;
                 } else {
                     const t = ev.totals;
-                    status.textContent = `Done. ${t.chunks_ok} of ${t.chunks_ok + t.chunks_failed} weeks ok.`;
+                    status.textContent = `done. ${t.chunks_ok} of ${t.chunks_ok + t.chunks_failed} weeks ok.`;
                     totalsEl.textContent =
                         `${t.cycles} cycles · ${t.recoveries} recoveries · ` +
                         `${t.sleeps} sleeps · ${t.workouts} workouts · ${t.strength_sets} strength sets`;
@@ -133,7 +133,7 @@
             es.close();
             btn.disabled = false;
             days.disabled = false;
-            status.textContent = 'Connection lost. Try again.';
+            status.textContent = 'connection lost. try again.';
         };
     });
 })();

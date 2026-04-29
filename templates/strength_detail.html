@@ -15,9 +15,9 @@
     <article><h3>Sessions</h3><p class="stat">{{ summary.total_sessions }}</p></article>
 </section>
 
-<article><h3>Estimated 1RM over time</h3><canvas id="e1rm"></canvas></article>
-<article><h3>Top weight per session</h3><canvas id="top_weight"></canvas></article>
-<article><h3>Volume per session (kg)</h3><canvas id="volume"></canvas></article>
+<article><h3>Estimated 1RM over time</h3><div id="e1rm" class="chart-wrap"></div></article>
+<article><h3>Top weight per session</h3><div id="top_weight" class="chart-wrap"></div></article>
+<article><h3>Volume per session (kg)</h3><div id="volume" class="chart-wrap"></div></article>
 
 {% if prs %}
 <article>

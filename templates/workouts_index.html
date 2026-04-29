@@ -1,59 +1,59 @@
 {% extends "base.html" %}
-{% block title %}Workouts · Whoop Insights{% endblock %}
+{% block title %}workouts · whoopInsights.{% endblock %}
 {% block content %}
 <section class="head">
-    <h1>Workouts over time</h1>
-    <p class="lede">Every sport you've recorded, when you last did it, and how often.</p>
+    <h1>workouts over time<span class="brand-dot">.</span></h1>
+    <p class="lede">every sport you've recorded, when you last did it, how often, and what burns the most calories.</p>
 </section>
 
 {% if not sports %}
-    <article><p>No workouts synced yet. Run a sync from the Overview.</p></article>
+    <article><p>no workouts synced yet. run a sync from the overview.</p></article>
 {% else %}
 
 {% set total_sessions = sports|sum(attribute='session_count') %}
 <section class="grid stat-grid">
     <article>
-        <h3>Total sessions</h3>
-        <p class="stat">{{ total_sessions }}</p>
+        <h3>total sessions</h3>
+        <p class="stat n-mint">{{ total_sessions }}</p>
         <small>across {{ sports|length }} sports</small>
     </article>
     <article>
-        <h3>Most recent</h3>
+        <h3>most recent</h3>
         <p class="stat">{{ sports[0].sport_name|friendly_sport }}</p>
         <small>{{ sports[0].last_at[:10] if sports[0].last_at else '—' }}</small>
     </article>
 </section>
 
 <article>
-    <h3>Sessions per week, stacked by sport</h3>
-    <canvas id="weekly_stacked"></canvas>
-</article>
-
-<article>
-    <h3>Total sessions per week</h3>
-    <canvas id="weekly_all"></canvas>
+    <h3>sessions per week, stacked by sport</h3>
+    <div id="weekly_stacked" class="chart-wrap"></div>
 </article>
 
 {% if kcal %}
 <article>
-    <h3>Top calorie burners</h3>
-    <canvas id="kcal_by_sport"></canvas>
+    <h3>biggest burners — avg kcal per session</h3>
+    <div id="kcal_avg_by_sport" class="chart-wrap"></div>
+</article>
+
+<article>
+    <h3>biggest burners — total kcal across all sessions</h3>
+    <div id="kcal_total_by_sport" class="chart-wrap"></div>
 </article>
 {% endif %}
 
 <article>
-    <h3>By sport</h3>
+    <h3>by sport</h3>
     <table>
         <thead>
             <tr>
-                <th>Sport</th>
+                <th>sport</th>
                 <th>id</th>
-                <th>Sessions</th>
-                <th>Last</th>
-                <th>Avg duration</th>
-                <th>Avg kcal</th>
-                <th>Total kcal</th>
-                <th>Avg strain</th>
+                <th>sessions</th>
+                <th>last</th>
+                <th>avg duration</th>
+                <th>avg kcal</th>
+                <th>total kcal</th>
+                <th>avg strain</th>
             </tr>
         </thead>
         <tbody>
@@ -61,10 +61,10 @@
                 <tr>
                     <td><a href="{{ url_for('workouts.detail', sport_name=s.sport_name) }}">{{ s.sport_name|friendly_sport }}</a></td>
                     <td><small class="muted">{{ s.sport_ids or '—' }}</small></td>
-                    <td>{{ s.session_count }}</td>
+                    <td class="n-mint">{{ s.session_count }}</td>
                     <td><time data-utc="{{ s.last_at }}">{{ s.last_at[:10] if s.last_at else '—' }}</time></td>
                     <td>{{ s.avg_minutes }} min</td>
-                    <td>{{ '{:,}'.format(s.avg_kcal) if s.avg_kcal else '—' }}</td>
+                    <td class="n-yellow">{{ '{:,}'.format(s.avg_kcal) if s.avg_kcal else '—' }}</td>
                     <td>{{ '{:,}'.format(s.total_kcal) if s.total_kcal else '—' }}</td>
                     <td>{{ '%.1f' % s.avg_strain if s.avg_strain else '—' }}</td>
                 </tr>
@@ -82,18 +82,22 @@
         renderStackedBar('weekly_stacked', stacked, FRIENDLY_SPORT);
     }
 
-    const weeklyAll = {{ weekly_all|tojson }};
-    if (weeklyAll && weeklyAll.length) {
-        renderLine('weekly_all', weeklyAll.map(p => ({day: p.week, value: p.value})));
-    }
-
-    const kcal = {{ kcal|tojson }};
-    if (kcal && kcal.length) {
+    const kcalAvg   = {{ kcal_avg|tojson }};
+    const kcalTotal = {{ kcal_total|tojson }};
+    if (kcalAvg && kcalAvg.length) {
         renderHorizontalBar(
-            'kcal_by_sport',
-            kcal.map(k => FRIENDLY_SPORT(k.sport_name)),
-            kcal.map(k => k.kcal),
-            'kcal',
+            'kcal_avg_by_sport',
+            kcalAvg.map(k => FRIENDLY_SPORT(k.sport_name)),
+            kcalAvg.map(k => k.kcal_avg),
+            'kcal / session',
+        );
+    }
+    if (kcalTotal && kcalTotal.length) {
+        renderHorizontalBar(
+            'kcal_total_by_sport',
+            kcalTotal.map(k => FRIENDLY_SPORT(k.sport_name)),
+            kcalTotal.map(k => k.kcal_total),
+            'kcal total',
         );
     }
 </script>
