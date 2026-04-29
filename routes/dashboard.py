@@ -5,7 +5,7 @@ from flask import (Blueprint, Response, render_template, session, redirect,
 
 from config import Config
 from db import get_db
-from analytics import trends
+from analytics import trends, periods as periods_analytics
 from whoop import oauth
 from whoop.client import WhoopClient
 from whoop.sync import sync_user, sync_user_iter
@@ -33,14 +33,17 @@ def index():
 
     user = None
     summary = None
+    period_data = None
     if user_id:
         user = db.execute("SELECT * FROM users WHERE id = ?", (user_id,)).fetchone()
         summary = _user_summary(db, user_id)
+        period_data = periods_analytics.period_summary(db, user_id)
 
     return render_template(
         "dashboard.html",
         user=user,
         summary=summary,
+        period_data=period_data,
         has_credentials=Config.has_whoop_credentials(),
         sample_mode=Config.USE_SAMPLE_DATA,
     )

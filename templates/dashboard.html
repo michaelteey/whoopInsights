@@ -35,31 +35,42 @@
         </article>
     </section>
 
-    <section class="grid stat-grid">
-        <article>
+    <div class="head" style="margin-bottom: 0.75rem;">
+        <h2 style="margin: 0;">averages over</h2>
+        <nav class="range" id="period-toggle">
+            <a href="#" data-period="1d">1d</a>
+            <a href="#" data-period="7d" class="on">7d</a>
+            <a href="#" data-period="30d">30d</a>
+            <a href="#" data-period="90d">90d</a>
+            <a href="#" data-period="6m">6m</a>
+        </nav>
+    </div>
+
+    <section class="grid stat-grid period-grid">
+        <article data-metric="recovery" data-unit="%" data-decimals="0" data-good="up">
             <h3>recovery</h3>
-            <p class="stat n-mint">{{ summary.recovery.recovery_score|round(0)|int if summary.recovery else '—' }}%</p>
-            <small>{{ summary.recovery.recorded_at[:10] if summary.recovery else 'no data' }}</small>
+            <p class="stat n-mint" data-stat>—</p>
+            <small data-delta>—</small>
         </article>
-        <article>
+        <article data-metric="hrv" data-unit=" ms" data-decimals="0" data-good="up">
             <h3>hrv</h3>
-            <p class="stat">{{ summary.recovery.hrv_rmssd_milli|round(0)|int if summary.recovery else '—' }} <small style="font-size: 0.9rem; color: var(--muted);">ms</small></p>
-            <small>rmssd</small>
+            <p class="stat" data-stat>—</p>
+            <small data-delta>rmssd</small>
         </article>
-        <article>
+        <article data-metric="rhr" data-unit=" bpm" data-decimals="0" data-good="down">
             <h3>rhr</h3>
-            <p class="stat">{{ summary.recovery.resting_heart_rate|round(0)|int if summary.recovery else '—' }}</p>
-            <small>bpm</small>
+            <p class="stat" data-stat>—</p>
+            <small data-delta>—</small>
         </article>
-        <article>
+        <article data-metric="strain" data-unit="" data-decimals="1" data-good="neutral">
             <h3>strain</h3>
-            <p class="stat n-yellow">{{ summary.cycle.strain|round(1) if summary.cycle else '—' }}</p>
-            <small>last cycle</small>
+            <p class="stat n-yellow" data-stat>—</p>
+            <small data-delta>—</small>
         </article>
-        <article>
+        <article data-metric="sleep_performance" data-unit="%" data-decimals="0" data-good="up">
             <h3>sleep performance</h3>
-            <p class="stat n-blue">{{ summary.sleep.sleep_performance_pct|round(0)|int if summary.sleep else '—' }}%</p>
-            <small>last night</small>
+            <p class="stat n-blue" data-stat>—</p>
+            <small data-delta>—</small>
         </article>
         <article>
             <h3>workouts</h3>
@@ -83,6 +94,59 @@
 {% if user %}
 <script>
 (() => {
+    /* Period stat cards: one global toggle drives all metrics. */
+    const PERIOD_DATA = {{ period_data|tojson }};
+    const cards = document.querySelectorAll('.period-grid article[data-metric]');
+    const toggle = document.querySelectorAll('#period-toggle a');
+
+    function fmtNumber(v, decimals) {
+        if (v === null || v === undefined) return '—';
+        const n = Number(v);
+        if (decimals === 0) return Math.round(n).toString();
+        return n.toFixed(decimals);
+    }
+
+    function applyPeriod(period) {
+        cards.forEach(card => {
+            const metric   = card.dataset.metric;
+            const unit     = card.dataset.unit || '';
+            const decimals = parseInt(card.dataset.decimals || '0', 10);
+            const good     = card.dataset.good;
+            const data = PERIOD_DATA && PERIOD_DATA[metric] && PERIOD_DATA[metric][period];
+            const stat = card.querySelector('[data-stat]');
+            const delta = card.querySelector('[data-delta]');
+            if (!data || data.value === null) {
+                stat.textContent = '—';
+                if (delta) delta.textContent = 'no data';
+                return;
+            }
+            stat.innerHTML = `${fmtNumber(data.value, decimals)}<small style="font-size:0.9rem;color:var(--muted);">${unit}</small>`;
+            if (delta && data.delta !== null && data.delta_pct !== null) {
+                const arrow = data.delta > 0 ? '▲' : (data.delta < 0 ? '▼' : '·');
+                const isGood = good === 'up' ? data.delta > 0
+                             : good === 'down' ? data.delta < 0
+                             : null;
+                const colour = isGood === null ? 'var(--muted)'
+                             : (isGood ? 'var(--mint)' : 'var(--pink)');
+                const sign = data.delta > 0 ? '+' : '';
+                delta.innerHTML = `<span style="color:${colour}">${arrow} ${sign}${fmtNumber(data.delta, decimals)}${unit} · ${sign}${data.delta_pct.toFixed(1)}%</span> vs prior ${period}`;
+            } else if (delta) {
+                delta.textContent = 'no comparison';
+            }
+        });
+    }
+
+    toggle.forEach(a => {
+        a.addEventListener('click', e => {
+            e.preventDefault();
+            toggle.forEach(x => x.classList.remove('on'));
+            a.classList.add('on');
+            applyPeriod(a.dataset.period);
+        });
+    });
+    applyPeriod('7d');
+
+    /* Sync UI */
     const btn       = document.getElementById('sync-btn');
     const days      = document.getElementById('sync-days');
     const panel     = document.getElementById('sync-progress');
