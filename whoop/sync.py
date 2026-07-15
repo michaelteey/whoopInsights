@@ -53,12 +53,21 @@ def sync_user_iter(conn: sqlite3.Connection, user_id: int, client: WhoopClient,
     """
     now = datetime.now(timezone.utc)
     totals = {"cycles": 0, "recoveries": 0, "sleeps": 0, "workouts": 0,
-              "strength_sets": 0, "chunks_ok": 0, "chunks_failed": 0,
+              "strength_sets": 0, "body_snapshots": 0,
+              "chunks_ok": 0, "chunks_failed": 0,
               "errors": []}
 
     total_chunks = max(1, (lookback_days + CHUNK_DAYS - 1) // CHUNK_DAYS)
     yield {"event": "start", "lookback_days": lookback_days,
            "total_chunks": total_chunks}
+
+    # Body measurement is a single "current" snapshot — pull once at start.
+    try:
+        if _snapshot_body_measurement(conn, user_id, client):
+            totals["body_snapshots"] = 1
+            conn.commit()
+    except Exception:
+        log.exception("Body measurement snapshot failed")
 
     chunk_index = 0
     for chunk_end_offset in range(0, lookback_days, CHUNK_DAYS):
@@ -105,6 +114,45 @@ def sync_user_iter(conn: sqlite3.Connection, user_id: int, client: WhoopClient,
 def _public_totals(totals: dict) -> dict:
     """Strip internal fields like the errors list for the streaming UI."""
     return {k: v for k, v in totals.items() if k != "errors"}
+
+
+def _snapshot_body_measurement(conn, user_id, client) -> bool:
+    """Fetch current body measurement and insert a row IF it differs from the
+    most recent stored snapshot. Returns True when a new row was inserted.
+
+    Body-fat isn't in the API today; we still write a column for it in case
+    Whoop adds it later or we ingest from another source."""
+    m = client.body_measurement()
+    weight = m.get("weight_kilogram")
+    height = m.get("height_meter")
+    max_hr = m.get("max_heart_rate")
+    body_fat = m.get("body_fat_percentage")  # present only if Whoop adds it
+
+    if weight is None and height is None and body_fat is None:
+        return False
+
+    last = conn.execute(
+        """SELECT weight_kg, height_m, max_hr, body_fat_pct
+           FROM body_measurements
+           WHERE user_id = ?
+           ORDER BY recorded_at DESC LIMIT 1""",
+        (user_id,),
+    ).fetchone()
+
+    if last and (last["weight_kg"] == weight
+                 and last["height_m"] == height
+                 and last["max_hr"] == max_hr
+                 and last["body_fat_pct"] == body_fat):
+        return False  # same as last snapshot — skip
+
+    conn.execute(
+        """INSERT INTO body_measurements (user_id, recorded_at, weight_kg,
+                                          height_m, max_hr, body_fat_pct,
+                                          source, raw)
+           VALUES (?, datetime('now'), ?, ?, ?, ?, 'whoop', ?)""",
+        (user_id, weight, height, max_hr, body_fat, dumps(m)),
+    )
+    return True
 
 
 def _sync_chunk(conn, user_id, client, start, end) -> dict:

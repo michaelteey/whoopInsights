@@ -1,0 +1,104 @@
+{% extends "base.html" %}
+{% block title %}body · whoopInsights.{% endblock %}
+{% block content %}
+<section class="head">
+    <h1>body composition<span class="brand-dot">.</span></h1>
+    <p class="lede">weight and body-fat trends captured from whoop's body-measurement endpoint. correlation analysis below surfaces which weekly behaviours line up with weight change.</p>
+</section>
+
+{% if not summary.current %}
+    <article>
+        <p>no body-measurement data yet.</p>
+        <p class="muted" style="font-size:0.8rem;">whoop's <code>/v2/user/measurement/body</code> only returns your CURRENT values, so the time series grows one snapshot per sync. update your weight in the whoop app then re-sync — you'll start seeing points here.</p>
+        <p class="muted" style="font-size:0.8rem;">body fat isn't currently exposed by whoop's public api — the column exists but stays empty unless whoop adds it.</p>
+    </article>
+{% else %}
+
+<section class="grid stat-grid">
+    <article>
+        <h3>current weight</h3>
+        <p class="stat">{{ summary.current.weight_kg }} <small style="font-size:0.9rem;color:var(--muted);">kg</small></p>
+        <small>{{ summary.current.recorded_at[:10] }}</small>
+    </article>
+    <article>
+        <h3>Δ since first snapshot</h3>
+        <p class="stat {% if summary.delta_kg is not none and summary.delta_kg < 0 %}n-mint{% elif summary.delta_kg is not none and summary.delta_kg > 0 %}n-yellow{% endif %}">
+            {% if summary.delta_kg is not none %}{% if summary.delta_kg > 0 %}+{% endif %}{{ summary.delta_kg }}{% else %}—{% endif %}
+            <small style="font-size:0.9rem;color:var(--muted);">kg</small>
+        </p>
+        <small>from {{ summary.earliest.recorded_at[:10] if summary.earliest else '—' }}</small>
+    </article>
+    <article>
+        <h3>bmi</h3>
+        <p class="stat">{{ summary.bmi if summary.bmi is not none else '—' }}</p>
+        <small>current</small>
+    </article>
+    <article>
+        <h3>body fat</h3>
+        <p class="stat">{{ summary.current.body_fat_pct if summary.current.body_fat_pct is not none else '—' }}{% if summary.current.body_fat_pct is not none %}<small style="font-size:0.9rem;color:var(--muted);">%</small>{% endif %}</p>
+        <small>not in whoop api</small>
+    </article>
+    <article>
+        <h3>snapshots</h3>
+        <p class="stat n-blue">{{ summary.n_points }}</p>
+        <small>data points</small>
+    </article>
+</section>
+
+<article>
+    <h3>weight over time</h3>
+    <div class="chart-scroll"><div id="weight_chart" class="chart-wrap"></div></div>
+</article>
+
+{% if correlations %}
+<article>
+    <h3>what's correlated with weekly weight change</h3>
+    <p class="muted" style="font-size:0.78rem; margin-bottom: 0.75rem;">pearson correlation between weekly weight delta and each behaviour metric. a positive r means "more of this = more weight gain," negative means "more of this = more weight loss." p is the (approximate) two-sided p-value. based on {{ correlations[0].n }} weekly pairs.</p>
+    <div class="table-scroll">
+        <table>
+            <thead>
+                <tr>
+                    <th>metric</th>
+                    <th>r</th>
+                    <th>p</th>
+                    <th>n</th>
+                    <th>interpretation</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for c in correlations %}
+                    <tr>
+                        <td>{{ c.label }}</td>
+                        <td class="{% if c.r < 0 %}n-mint{% elif c.r > 0 %}n-yellow{% endif %}">{{ '{:+.3f}'.format(c.r) }}</td>
+                        <td class="{% if c.p is not none and c.p < 0.05 %}n-mint{% endif %}">{{ '{:.4f}'.format(c.p) if c.p is not none else '—' }}</td>
+                        <td>{{ c.n }}</td>
+                        <td class="muted">{{ c.direction }}</td>
+                    </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+    <p class="muted" style="font-size:0.75rem; margin-top: 0.75rem;">
+        note: correlation ≠ causation. these are pairwise, so a driver
+        that co-varies with a stronger driver may show a spurious signal.
+        we don't yet have calorie intake, so the biggest lever is missing.
+    </p>
+</article>
+{% else %}
+<article>
+    <p class="muted">not enough weekly weight points yet for correlations. we need at least ~5 weeks of weight snapshots. keep syncing.</p>
+</article>
+{% endif %}
+{% endif %}
+{% endblock %}
+
+{% block scripts %}
+<script>
+    const series = {{ series|tojson }};
+    if (series && series.length) {
+        renderLine('weight_chart',
+            series.map(p => ({day: p.date, value: p.weight_kg})),
+            { color: '#3ee6ad', label: 'kg' });
+    }
+</script>
+{% endblock %}

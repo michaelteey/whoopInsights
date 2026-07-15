@@ -78,6 +78,9 @@ class WhoopClient:
     def profile(self) -> dict:
         return self._get("/v2/user/profile/basic")
 
+    def body_measurement(self) -> dict:
+        return self._get("/v2/user/measurement/body")
+
     def cycles(self, start: str | None = None, end: str | None = None) -> Iterator[dict]:
         yield from self._paginate("/v2/cycle", _range(start, end))
 

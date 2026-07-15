@@ -5,7 +5,7 @@ from flask import Flask
 
 from config import Config
 from db import close_db, init_db
-from routes import auth, dashboard, sleep, strength, workouts
+from routes import auth, body, dashboard, sleep, strength, workouts
 
 
 SERVER_BOOT_AT = datetime.now(timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ")
@@ -29,6 +29,7 @@ def create_app() -> Flask:
     app.register_blueprint(strength.bp)
     app.register_blueprint(workouts.bp)
     app.register_blueprint(sleep.bp)
+    app.register_blueprint(body.bp)
 
     from analytics import sports
     app.jinja_env.filters["friendly_sport"] = sports.friendly

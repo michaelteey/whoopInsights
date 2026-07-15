@@ -108,6 +108,22 @@ CREATE TABLE IF NOT EXISTS strength_sets (
 );
 CREATE INDEX IF NOT EXISTS idx_sets_user_exercise_at ON strength_sets(user_id, exercise_name, performed_at);
 CREATE INDEX IF NOT EXISTS idx_sets_workout ON strength_sets(workout_id);
+
+-- Body composition snapshots. Whoop's /v2/user/measurement/body only returns
+-- CURRENT values, so we snapshot on every sync (deduped on same-day same-values)
+-- to build our own time series.
+CREATE TABLE IF NOT EXISTS body_measurements (
+    id              INTEGER PRIMARY KEY AUTOINCREMENT,
+    user_id         INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+    recorded_at     TEXT NOT NULL,
+    weight_kg       REAL,
+    height_m        REAL,
+    max_hr          INTEGER,
+    body_fat_pct    REAL,             -- nullable; not currently in Whoop's API
+    source          TEXT NOT NULL DEFAULT 'whoop',
+    raw             TEXT
+);
+CREATE INDEX IF NOT EXISTS idx_body_user_at ON body_measurements(user_id, recorded_at);
 """
 
 

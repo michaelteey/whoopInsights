@@ -30,6 +30,27 @@ def seed_if_empty() -> None:
         _seed_cycles_and_recovery(conn, user_id, days=180)
         _seed_sleeps(conn, user_id, days=180)
         _seed_strength(conn, user_id, weeks=24)
+        _seed_body(conn, user_id, weeks=26)
+
+
+def _seed_body(conn, user_id, weeks):
+    """Roughly weekly weight snapshots trending down ~3kg over 6 months
+    with realistic noise, so correlations page has something to show."""
+    end = datetime.now(timezone.utc).replace(hour=8, minute=0, second=0, microsecond=0)
+    start_weight = 82.0
+    height = 1.80
+    for w in range(weeks):
+        recorded_at = end - timedelta(weeks=weeks - w)
+        # Slow linear-ish trend down with weekly noise
+        weight = start_weight - (w * 0.12) + random.gauss(0, 0.35)
+        conn.execute(
+            """INSERT INTO body_measurements (user_id, recorded_at, weight_kg,
+                                              height_m, max_hr, body_fat_pct,
+                                              source, raw)
+               VALUES (?, ?, ?, ?, ?, ?, 'sample', ?)""",
+            (user_id, recorded_at.isoformat(), round(weight, 2), height, 191,
+             None, dumps({"sample": True})),
+        )
 
 
 def _seed_cycles_and_recovery(conn, user_id, days):
